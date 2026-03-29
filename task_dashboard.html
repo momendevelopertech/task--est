@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f7;min-height:100vh;padding:20px 16px;direction:rtl;color:#1a1a2e}
+h1{text-align:center;font-size:21px;font-weight:700;margin-bottom:4px}
+.sub{text-align:center;font-size:12px;color:#888;margin-bottom:6px}
+.path{background:#1a1a2e;color:#7ecfff;font-family:monospace;font-size:11px;padding:6px 14px;border-radius:8px;text-align:center;margin-bottom:18px}
+
+.sync-bar{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;margin-bottom:14px;padding:7px 14px;border-radius:10px;background:#fff;border:1px solid #eee}
+.dot{width:8px;height:8px;border-radius:50%;background:#ccc;transition:background .3s}
+.dot.green{background:#2e7d32} .dot.orange{background:#e65100} .dot.red{background:#c62828}
+
+.stats{display:flex;gap:8px;margin-bottom:18px}
+.st{flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center;border:1px solid #eee}
+.st-n{font-size:22px;font-weight:700} .st-l{font-size:11px;color:#888;margin-top:2px}
+.c-pink .st-n{color:#c2185b} .c-blue .st-n{color:#1565c0} .c-green .st-n{color:#2e7d32} .c-orange .st-n{color:#e65100} .c-gray .st-n{color:#555}
+
+.toolbar{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.tab{padding:7px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:2px solid transparent;background:#fff;transition:all .2s}
+.tab-all{color:#4a4a6a;border-color:#ddd} .tab-all.active{background:#4a4a6a;color:#fff}
+.tab-sarah{color:#c2185b;border-color:#f8bbd0} .tab-sarah.active{background:#c2185b;color:#fff}
+.tab-hossam{color:#1565c0;border-color:#bbdefb} .tab-hossam.active{background:#1565c0;color:#fff}
+.spacer{flex:1}
+.filter-status{padding:7px 12px;border-radius:20px;font-size:12px;border:1.5px solid #ddd;background:#fff;cursor:pointer;color:#555;font-weight:500}
+.filter-status.active{border-color:#555;background:#555;color:#fff}
+
+.est-label{font-size:11px;font-weight:700;letter-spacing:1.2px;color:#aaa;text-transform:uppercase;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.est-label::before,.est-label::after{content:'';flex:1;height:1px;background:#e0e0e0}
+.est-section{margin-bottom:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+
+.card{background:#fff;border-radius:14px;padding:14px;border:1.5px solid #eee;transition:box-shadow .2s,transform .15s}
+.card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-2px)}
+.card-sarah{border-top:3px solid #c2185b} .card-hossam{border-top:3px solid #1565c0}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.bname{font-size:13px;font-weight:700;color:#1a1a2e;flex:1}
+.who-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:10px;white-space:nowrap;margin-right:6px}
+.wb-sarah{background:#fce4ec;color:#c2185b} .wb-hossam{background:#e3f2fd;color:#1565c0}
+
+.task-row{display:flex;align-items:center;gap:8px;background:#f8f9fc;border-radius:10px;padding:8px 10px;margin-bottom:6px;border:1px solid #eef}
+.floor-name{font-size:12px;font-weight:600;color:#333;flex:1}
+.arrow{font-size:11px;color:#aaa;white-space:nowrap}
+.status-btn{font-size:10px;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer;border:none;white-space:nowrap;transition:all .15s;min-width:58px;text-align:center}
+.s-todo{background:#fff3e0;color:#e65100} .s-todo:hover{background:#ffe0b2}
+.s-wip{background:#e3f2fd;color:#1565c0} .s-wip:hover{background:#bbdefb}
+.s-done{background:#e8f5e9;color:#2e7d32} .s-done:hover{background:#c8e6c9}
+.est-tag{display:inline-block;font-size:10px;background:#ede7f6;color:#4527a0;padding:2px 7px;border-radius:6px;font-weight:600;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<h1>📋 لوحة التحويل</h1>
+<p class="sub">PDF → Excel · March 2026</p>
+<div class="path">📁 est\EST\March -2026\files</div>
+
+<div class="sync-bar">
+  <div class="dot" id="dot"></div>
+  <span id="sync-label">جاري الاتصال...</span>
+</div>
+
+<div class="stats">
+  <div class="st c-pink"><div class="st-n" id="cnt-sarah">—</div><div class="st-l">👩 سارة</div></div>
+  <div class="st c-blue"><div class="st-n" id="cnt-hossam">—</div><div class="st-l">👨 حسام</div></div>
+  <div class="st c-gray"><div class="st-n" id="cnt-todo">—</div><div class="st-l">لسه</div></div>
+  <div class="st c-orange"><div class="st-n" id="cnt-wip">—</div><div class="st-l">شغال</div></div>
+  <div class="st c-green"><div class="st-n" id="cnt-done">—</div><div class="st-l">خلص ✓</div></div>
+</div>
+
+<div class="toolbar">
+  <button class="tab tab-all active" onclick="setOwner('all',this)">الكل</button>
+  <button class="tab tab-sarah" onclick="setOwner('sarah',this)">👩 سارة</button>
+  <button class="tab tab-hossam" onclick="setOwner('hossam',this)">👨 حسام</button>
+  <div class="spacer"></div>
+  <button class="filter-status" onclick="toggleStatusFilter('todo',this)">لسه</button>
+  <button class="filter-status" onclick="toggleStatusFilter('wip',this)">شغال</button>
+  <button class="filter-status" onclick="toggleStatusFilter('done',this)">خلص</button>
+</div>
+
+<div id="board"></div>
+
+<script>
+const SUPABASE_URL = "https://ijiniarsesgpaismytow.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqaW5pYXJzZXNncGFpc215dG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTU2OTUsImV4cCI6MjA5MDM3MTY5NX0.C-IC3ppIycKi0NgUGEhkhfSIaieRT85iDh-0uuwR-Ko";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const tasks = [
+  {est:1,building:"Future – Engineering",floor:"Ground",owner:"sarah"},
+  {est:1,building:"Future – Engineering",floor:"1st floor",owner:"sarah"},
+  {est:1,building:"Future – Engineering",floor:"2nd floor",owner:"hossam"},
+  {est:1,building:"Future – Engineering",floor:"3rd floor",owner:"hossam"},
+  {est:1,building:"Future – Pharmacy",floor:"Basement",owner:"sarah"},
+  {est:1,building:"Future – Pharmacy",floor:"Ground",owner:"sarah"},
+  {est:1,building:"Future – Pharmacy",floor:"1st floor",owner:"sarah"},
+  {est:1,building:"Future – Pharmacy",floor:"2nd floor",owner:"hossam"},
+  {est:1,building:"Future – Pharmacy",floor:"3rd floor",owner:"hossam"},
+  {est:1,building:"Future – Political Science",floor:"Basement",owner:"sarah"},
+  {est:1,building:"Future – Political Science",floor:"Ground",owner:"sarah"},
+  {est:1,building:"Future – Political Science",floor:"1st floor",owner:"hossam"},
+  {est:1,building:"Future – Political Science",floor:"2nd floor",owner:"hossam"},
+  {est:1,building:"Future – Business",floor:"Basement",owner:"sarah"},
+  {est:1,building:"Future – Business",floor:"1st floor",owner:"sarah"},
+  {est:1,building:"Future – Business",floor:"2nd floor",owner:"hossam"},
+  {est:1,building:"Future – Business",floor:"3rd floor",owner:"hossam"},
+  {est:1,building:"Future – Dentistry",floor:"Ground",owner:"sarah"},
+  {est:1,building:"Future – Dentistry",floor:"1st floor",owner:"sarah"},
+  {est:1,building:"Future – Dentistry",floor:"2nd floor",owner:"hossam"},
+  {est:1,building:"Alex – Engineering B",floor:"1st floor",owner:"sarah"},
+  {est:1,building:"Alex – Engineering B",floor:"2nd floor",owner:"sarah"},
+  {est:1,building:"Alex – Engineering B",floor:"3rd floor",owner:"hossam"},
+  {est:1,building:"Alex – Engineering B",floor:"4th floor",owner:"hossam"},
+  {est:1,building:"Alex – Pharmacy",floor:"2nd floor",owner:"sarah"},
+  {est:1,building:"Alex – Pharmacy",floor:"3rd floor",owner:"sarah"},
+  {est:1,building:"Alex – Pharmacy",floor:"4th floor",owner:"hossam"},
+  {est:1,building:"Alex – Pharmacy",floor:"5th floor",owner:"hossam"},
+  {est:1,building:"Damietta – Engineering",floor:"2nd floor",owner:"sarah"},
+  {est:1,building:"Damietta – Engineering",floor:"3rd floor",owner:"hossam"},
+  {est:1,building:"Damietta – Engineering",floor:"4th floor",owner:"hossam"},
+  {est:2,building:"Alex – Pharmacy",floor:"2nd floor",owner:"sarah"},
+  {est:2,building:"Alex – Pharmacy",floor:"3rd floor",owner:"sarah"},
+  {est:2,building:"Alex – Pharmacy",floor:"4th floor",owner:"hossam"},
+  {est:2,building:"Alex – Pharmacy",floor:"5th floor",owner:"hossam"},
+  {est:2,building:"Damietta – Medicine",floor:"1st floor",owner:"hossam"},
+  {est:2,building:"Future – Political Sc",floor:"Ground",owner:"sarah"},
+  {est:2,building:"Future – Political Sc",floor:"1st floor",owner:"sarah"},
+  {est:2,building:"Future – Political Sc",floor:"2nd floor",owner:"hossam"},
+  {est:2,building:"Future – Political Sc",floor:"Basement",owner:"hossam"},
+  {est:2,building:"Future – Business",floor:"1st floor",owner:"sarah"},
+  {est:2,building:"Future – Business",floor:"2nd floor",owner:"sarah"},
+  {est:2,building:"Future – Business",floor:"3rd floor",owner:"hossam"},
+  {est:2,building:"Future – Business",floor:"Basement",owner:"hossam"},
+];
+
+const states = ["todo","wip","done"];
+const stLabel = {todo:"لسه",wip:"شغال",done:"خلص ✓"};
+const stClass = {todo:"s-todo",wip:"s-wip",done:"s-done"};
+let statuses = {};
+let activeOwner = "all";
+let activeStatus = null;
+
+function setDot(state){
+  const dot = document.getElementById("dot");
+  const lbl = document.getElementById("sync-label");
+  dot.className = "dot " + (state==="ok"?"green":state==="saving"?"orange":"red");
+  lbl.textContent = state==="ok"?"متزامن ✓":state==="saving"?"جاري الحفظ...":"خطأ في الاتصال";
+}
+
+async function loadStatuses(){
+  const {data,error} = await sb.from("task_statuses").select("id,status").order("id");
+  if(error){ setDot("red"); return; }
+  data.forEach(r=>{ statuses[r.id]=r.status; });
+  setDot("ok");
+  render();
+}
+
+async function cycleStatus(i){
+  const cur = statuses[i];
+  const next = states[(states.indexOf(cur)+1)%3];
+  statuses[i] = next;
+  render();
+  setDot("saving");
+  const {error} = await sb.from("task_statuses").update({status:next}).eq("id",i);
+  setDot(error?"red":"ok");
+}
+
+// real-time listener
+sb.channel("task_statuses")
+  .on("postgres_changes",{event:"UPDATE",schema:"public",table:"task_statuses"},payload=>{
+    const {id,status} = payload.new;
+    statuses[id] = status;
+    render();
+  })
+  .subscribe();
+
+function setOwner(o,el){
+  activeOwner=o;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function toggleStatusFilter(s,el){
+  if(activeStatus===s){activeStatus=null;el.classList.remove('active');}
+  else{activeStatus=s;document.querySelectorAll('.filter-status').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+  render();
+}
+
+function render(){
+  const groups={};
+  tasks.forEach((t,i)=>{
+    const key=`${t.est}|||${t.building}`;
+    if(!groups[key]) groups[key]={est:t.est,building:t.building,items:[]};
+    groups[key].items.push({...t,idx:i});
+  });
+
+  const byEst={1:[],2:[]};
+  Object.values(groups).forEach(g=>{
+    const visItems=g.items.filter(t=>{
+      const ownerOk=activeOwner==="all"||t.owner===activeOwner;
+      const statusOk=!activeStatus||statuses[t.idx]===activeStatus;
+      return ownerOk&&statusOk;
+    });
+    if(!visItems.length) return;
+    const byOwner={};
+    visItems.forEach(t=>{if(!byOwner[t.owner])byOwner[t.owner]=[];byOwner[t.owner].push(t);});
+    Object.entries(byOwner).forEach(([owner,items])=>{ byEst[g.est].push({building:g.building,owner,items}); });
+  });
+
+  let html="";
+  [1,2].forEach(est=>{
+    if(!byEst[est].length) return;
+    html+=`<div class="est-section"><div class="est-label">EST ${est}</div><div class="grid">`;
+    byEst[est].forEach(({building,owner,items})=>{
+      const wbClass=owner==="sarah"?"wb-sarah":"wb-hossam";
+      const wbLabel=owner==="sarah"?"👩 سارة":"👨 حسام";
+      const cardClass=owner==="sarah"?"card-sarah":"card-hossam";
+      html+=`<div class="card ${cardClass}">`;
+      html+=`<div class="est-tag">EST ${est} · ✏️ Writing</div>`;
+      html+=`<div class="card-head"><div class="bname">${building}</div><span class="who-badge ${wbClass}">${wbLabel}</span></div>`;
+      items.forEach(t=>{
+        const st=statuses[t.idx]||"todo";
+        html+=`<div class="task-row">
+          <div class="floor-name">📄 ${t.floor}</div>
+          <span class="arrow">→ xlsx</span>
+          <button class="status-btn ${stClass[st]}" onclick="cycleStatus(${t.idx})">${stLabel[st]}</button>
+        </div>`;
+      });
+      html+=`</div>`;
+    });
+    html+=`</div></div>`;
+  });
+
+  if(!html) html=`<div style="text-align:center;padding:40px;color:#aaa;font-size:14px;">مفيش تاسكات بهذا الفلتر</div>`;
+  document.getElementById("board").innerHTML=html;
+
+  let cs=0,ch=0,ctodo=0,cwip=0,cdone=0;
+  tasks.forEach((_,i)=>{
+    if(tasks[i].owner==="sarah") cs++; else ch++;
+    const s=statuses[i]||"todo";
+    if(s==="todo") ctodo++; else if(s==="wip") cwip++; else cdone++;
+  });
+  document.getElementById("cnt-sarah").textContent=cs;
+  document.getElementById("cnt-hossam").textContent=ch;
+  document.getElementById("cnt-todo").textContent=ctodo;
+  document.getElementById("cnt-wip").textContent=cwip;
+  document.getElementById("cnt-done").textContent=cdone;
+}
+
+loadStatuses();
+</script>
+</body>
+</html>
