@@ -28,6 +28,65 @@ const stateClass = {
   done: "s-done"
 };
 
+const iconMap = {
+  todo: `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="M12 7.5v5l3 2"></path>
+    </svg>
+  `,
+  wip: `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M21 12a9 9 0 1 1-3.16-6.86"></path>
+      <path d="M21 3v6h-6"></path>
+    </svg>
+  `,
+  done: `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="m8.5 12 2.5 2.5L16 9.5"></path>
+    </svg>
+  `,
+  note: `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 20h9"></path>
+      <path d="m16.5 3.5 4 4"></path>
+      <path d="M18.5 1.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"></path>
+    </svg>
+  `,
+  missing: `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="m10.29 3.86-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.71-3.14l-8-14a2 2 0 0 0-3.42 0Z"></path>
+      <path d="M12 9v4"></path>
+      <circle cx="12" cy="17" r="1"></circle>
+    </svg>
+  `,
+  save: `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 3v12"></path>
+      <path d="m7 10 5 5 5-5"></path>
+      <path d="M5 21h14"></path>
+    </svg>
+  `
+};
+
+function getIconSvg(iconName) {
+  return iconMap[iconName] || "";
+}
+
+function getStatusIconName(status) {
+  return status === "wip" ? "wip" : status === "done" ? "done" : "todo";
+}
+
+function renderButtonContent(iconName, label) {
+  return `
+    <span class="btn-shell">
+      <span class="btn-icon" aria-hidden="true">${getIconSvg(iconName)}</span>
+      <span class="btn-label" data-btn-label>${escapeHtml(label)}</span>
+    </span>
+  `;
+}
+
 const roleMeta = {
   admin: { label: "Admin", eyebrow: "Admin View" },
   lead: { label: "Lead", eyebrow: "Lead View" },
@@ -502,6 +561,7 @@ function renderStats() {
 function updateFilterButtons() {
   filterButtons.forEach((button) => {
     button.classList.toggle("is-active", state.activeStatus === button.dataset.statusFilter);
+    button.setAttribute("aria-pressed", String(state.activeStatus === button.dataset.statusFilter));
   });
 }
 
@@ -705,6 +765,18 @@ function getTaskMissingToggleLabel(task) {
   return taskIsMissing(task) ? "Clear missing" : "Mark missing";
 }
 
+function setButtonLabel(button, label) {
+  const labelEl = button?.querySelector("[data-btn-label]");
+  if (labelEl) {
+    labelEl.textContent = label;
+    return;
+  }
+
+  if (button) {
+    button.textContent = label;
+  }
+}
+
 function shouldShowAssigneeBadge(task) {
   if (!state.currentUser) {
     return false;
@@ -725,7 +797,7 @@ function syncTaskNoteUi(task) {
 
   if (saveButton) {
     saveButton.disabled = !canSaveTaskNote(task);
-    saveButton.textContent = getTaskNoteButtonLabel(task);
+    setButtonLabel(saveButton, getTaskNoteButtonLabel(task));
   }
 
   if (noteStatus) {
@@ -736,7 +808,7 @@ function syncTaskNoteUi(task) {
 
   if (noteToggle) {
     noteToggle.disabled = !canToggleTaskNote(task);
-    noteToggle.textContent = getTaskNoteToggleLabel(task);
+    setButtonLabel(noteToggle, getTaskNoteToggleLabel(task));
     noteToggle.setAttribute("aria-expanded", String(isTaskNoteEditorOpen(task)));
   }
 }
@@ -770,30 +842,30 @@ function renderTaskRow(task) {
           ${isAdmin() ? `
             <button
               type="button"
-              class="missing-toggle-btn${missing ? " is-active" : ""}"
+              class="task-action-btn missing-toggle-btn${missing ? " is-active" : ""}"
               onclick="toggleMissing(${task.id})"
               ${canToggleTaskMissing() ? "" : "disabled"}
               aria-pressed="${missing ? "true" : "false"}"
               aria-label="${escapeHtml(missing ? `Remove missing flag from ${task.building} ${task.floor_name}` : `Mark ${task.building} ${task.floor_name} as missing`)}"
               title="${escapeHtml(state.missingSupported ? getTaskMissingToggleLabel(task) : "Missing flag needs SQL support")}"
-            >${escapeHtml(missing ? "Clear missing" : "Mark missing")}</button>
+            >${renderButtonContent("missing", missing ? "Clear missing" : "Mark missing")}</button>
           ` : ""}
           <button
             type="button"
-            class="note-toggle-btn${hasNote ? " has-content" : ""}"
+            class="task-action-btn note-toggle-btn${hasNote ? " has-content" : ""}"
             data-note-toggle
             onclick="toggleNoteEditor(${task.id})"
             ${canToggleTaskNote(task) ? "" : "disabled"}
             aria-expanded="${noteOpen ? "true" : "false"}"
             aria-controls="note-panel-${task.id}"
-          >${escapeHtml(getTaskNoteToggleLabel(task))}</button>
+          >${renderButtonContent("note", getTaskNoteToggleLabel(task))}</button>
           <button
             type="button"
-            class="status-btn ${stateClass[task.status]}"
+            class="task-action-btn status-btn ${stateClass[task.status]}"
             onclick="cycleStatus(${task.id})"
             ${state.loaded ? "" : "disabled"}
             aria-label="Change status for ${escapeHtml(task.building)} ${escapeHtml(task.floor_name)}"
-          >${stateLabel[task.status]}</button>
+          >${renderButtonContent(getStatusIconName(task.status), stateLabel[task.status])}</button>
         </div>
       </div>
 
@@ -819,7 +891,7 @@ function renderTaskRow(task) {
               data-note-save
               onclick="saveNote(${task.id})"
               ${canSaveTaskNote(task) ? "" : "disabled"}
-            >${escapeHtml(getTaskNoteButtonLabel(task))}</button>
+            >${renderButtonContent("save", getTaskNoteButtonLabel(task))}</button>
           </div>
         </div>
       ` : ""}
@@ -1912,6 +1984,12 @@ async function toggleMissing(taskId) {
 
 function bindFilterButtons() {
   filterButtons.forEach((button) => {
+    const status = button.dataset.statusFilter;
+    if (status && stateLabel[status]) {
+      button.innerHTML = renderButtonContent(getStatusIconName(status), stateLabel[status]);
+      button.setAttribute("aria-label", stateLabel[status]);
+    }
+
     if (button.dataset.bound === "true") {
       return;
     }
