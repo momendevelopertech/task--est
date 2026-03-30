@@ -55,8 +55,14 @@ const tasks = [
   { est: 2, building: "Future - Business", floor: "2nd floor", owner: "sarah" },
   { est: 2, building: "Future - Business", floor: "3rd floor", owner: "hossam" },
   { est: 2, building: "Future - Business", floor: "Basement", owner: "hossam" }
-].map((task, idx) => ({ ...task, idx }));
+].map((task, idx) => ({
+  ...task,
+  idx,
+  zeroBasedId: idx,
+  oneBasedId: idx + 1
+}));
 
+const EXPECTED_TASK_COUNT = tasks.length;
 const stateOrder = ["todo", "wip", "done"];
 const stateLabel = {
   todo: "To Do",
@@ -72,11 +78,14 @@ const stateClass = {
 
 const statuses = {};
 let activeStatus = null;
+let idMode = null;
+let warningMessage = "";
 
 const statsEl = document.getElementById("stats");
 const boardEl = document.getElementById("board");
 const dotEl = document.getElementById("dot");
 const syncLabelEl = document.getElementById("sync-label");
+const warningEl = document.getElementById("db-warning");
 const filterButtons = Array.from(document.querySelectorAll("[data-status-filter]"));
 
 function escapeHtml(value) {
@@ -96,18 +105,92 @@ function setDot(state) {
     "Connection issue";
 }
 
+function renderWarning() {
+  if (!warningEl) {
+    return;
+  }
+
+  warningEl.textContent = warningMessage;
+  warningEl.classList.toggle("is-hidden", !warningMessage);
+}
+
+function setWarning(message) {
+  warningMessage = message;
+  renderWarning();
+}
+
+function clearWarning() {
+  setWarning("");
+}
+
+function clearStatuses() {
+  Object.keys(statuses).forEach((key) => {
+    delete statuses[key];
+  });
+}
+
+function detectIdMode(rows) {
+  const ids = new Set(rows.map((row) => row.id));
+  if (!ids.size) {
+    return null;
+  }
+
+  const zeroBasedSignals = Number(ids.has(0)) + Number(ids.has(EXPECTED_TASK_COUNT - 1));
+  const oneBasedSignals = Number(ids.has(1)) + Number(ids.has(EXPECTED_TASK_COUNT));
+
+  if (oneBasedSignals > zeroBasedSignals) {
+    return "one-based";
+  }
+
+  if (zeroBasedSignals > oneBasedSignals) {
+    return "zero-based";
+  }
+
+  if (ids.has(1) && !ids.has(0)) {
+    return "one-based";
+  }
+
+  if (ids.has(0) && !ids.has(1)) {
+    return "zero-based";
+  }
+
+  return null;
+}
+
+function inferIdModeFromRowId(rowId) {
+  if (rowId === 0 || rowId === EXPECTED_TASK_COUNT - 1) {
+    idMode = "zero-based";
+  } else if (rowId === 1 || rowId === EXPECTED_TASK_COUNT) {
+    idMode = "one-based";
+  }
+}
+
+function getCandidateDbIds(task) {
+  const orderedIds = idMode === "one-based"
+    ? [task.oneBasedId, task.zeroBasedId]
+    : [task.zeroBasedId, task.oneBasedId];
+
+  return Array.from(new Set(orderedIds));
+}
+
 function getScopedTasks() {
   return PAGE_OWNER ? tasks.filter((task) => task.owner === PAGE_OWNER) : tasks;
 }
 
-function getTaskState(taskIdx) {
-  return statuses[taskIdx] || "todo";
+function getTaskState(task) {
+  for (const dbId of getCandidateDbIds(task)) {
+    if (statuses[dbId]) {
+      return statuses[dbId];
+    }
+  }
+
+  return "todo";
 }
 
 function getVisibleTasks() {
   const scopedTasks = getScopedTasks();
   return activeStatus
-    ? scopedTasks.filter((task) => getTaskState(task.idx) === activeStatus)
+    ? scopedTasks.filter((task) => getTaskState(task) === activeStatus)
     : scopedTasks;
 }
 
@@ -116,7 +199,7 @@ function renderStats() {
   const totals = { todo: 0, wip: 0, done: 0 };
 
   scopedTasks.forEach((task) => {
-    totals[getTaskState(task.idx)] += 1;
+    totals[getTaskState(task)] += 1;
   });
 
   const cards = PAGE_OWNER
@@ -198,7 +281,7 @@ function renderBoard() {
       html += `<div class="card-head"><h2 class="bname">${escapeHtml(group.building)}</h2><span class="who-badge ${owner.badgeClass}">${owner.label}</span></div>`;
 
       group.items.forEach((task) => {
-        const state = getTaskState(task.idx);
+        const state = getTaskState(task);
         html += `
           <div class="task-row">
             <div class="floor-name">${escapeHtml(task.floor)}</div>
@@ -222,39 +305,114 @@ function renderBoard() {
 }
 
 function render() {
+  renderWarning();
   renderStats();
   updateFilterButtons();
   renderBoard();
 }
 
+function getSetupGuidance() {
+  return "Supabase returned 0 visible rows for task_statuses. This usually means the table is empty for the anon role, or RLS blocks select. Run supabase_setup.sql once in the Supabase SQL Editor.";
+}
+
 async function loadStatuses() {
   setDot("saving");
+  clearStatuses();
+
   const { data, error } = await sb.from("task_statuses").select("id,status").order("id");
 
   if (error) {
+    setWarning(`Could not load task statuses from Supabase: ${error.message}`);
     setDot("red");
     render();
     return;
   }
 
-  data.forEach((row) => {
+  const rows = Array.isArray(data) ? data : [];
+  idMode = detectIdMode(rows);
+
+  rows.forEach((row) => {
     statuses[row.id] = row.status;
   });
+
+  if (!rows.length) {
+    setWarning(getSetupGuidance());
+  } else if (rows.length < EXPECTED_TASK_COUNT) {
+    setWarning(`Loaded ${rows.length} visible rows for ${EXPECTED_TASK_COUNT} tasks. Seed the missing rows in Supabase and confirm anon select/update policies exist.`);
+  } else {
+    clearWarning();
+  }
 
   setDot("ok");
   render();
 }
 
-async function cycleStatus(taskIdx) {
-  const current = getTaskState(taskIdx);
-  const next = stateOrder[(stateOrder.indexOf(current) + 1) % stateOrder.length];
+async function persistStatus(task, nextState) {
+  let lastError = null;
 
-  statuses[taskIdx] = next;
+  for (const dbId of getCandidateDbIds(task)) {
+    const { data, error } = await sb
+      .from("task_statuses")
+      .update({ status: nextState })
+      .eq("id", dbId)
+      .select("id,status");
+
+    if (error) {
+      lastError = error;
+      continue;
+    }
+
+    if (Array.isArray(data) && data.length > 0) {
+      inferIdModeFromRowId(data[0].id);
+      statuses[data[0].id] = data[0].status;
+      return { ok: true, dbId: data[0].id };
+    }
+  }
+
+  return { ok: false, error: lastError };
+}
+
+async function cycleStatus(taskIdx) {
+  const task = tasks[taskIdx];
+  if (!task) {
+    return;
+  }
+
+  const current = getTaskState(task);
+  const next = stateOrder[(stateOrder.indexOf(current) + 1) % stateOrder.length];
+  const candidateIds = getCandidateDbIds(task);
+  const optimisticId = candidateIds[0];
+  const previousStates = Object.fromEntries(candidateIds.map((dbId) => [dbId, statuses[dbId]]));
+
+  statuses[optimisticId] = next;
   render();
   setDot("saving");
 
-  const { error } = await sb.from("task_statuses").update({ status: next }).eq("id", taskIdx);
-  setDot(error ? "red" : "ok");
+  const result = await persistStatus(task, next);
+
+  if (result.ok) {
+    candidateIds.forEach((dbId) => {
+      if (dbId !== result.dbId) {
+        delete statuses[dbId];
+      }
+    });
+    statuses[result.dbId] = next;
+    setDot("ok");
+    render();
+    return;
+  }
+
+  candidateIds.forEach((dbId) => {
+    if (previousStates[dbId] === undefined) {
+      delete statuses[dbId];
+    } else {
+      statuses[dbId] = previousStates[dbId];
+    }
+  });
+
+  setWarning(`Save failed for "${task.building} / ${task.floor}". No visible database row accepted the update. Check task_statuses rows, row IDs, and anon RLS policies for select/update.`);
+  setDot("red");
+  render();
 }
 
 filterButtons.forEach((button) => {
@@ -265,6 +423,7 @@ filterButtons.forEach((button) => {
 
 sb.channel("task_statuses")
   .on("postgres_changes", { event: "UPDATE", schema: "public", table: "task_statuses" }, (payload) => {
+    inferIdModeFromRowId(payload.new.id);
     statuses[payload.new.id] = payload.new.status;
     render();
   })
