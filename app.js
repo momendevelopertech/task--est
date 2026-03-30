@@ -320,11 +320,11 @@ function canToggleTaskNote(task) {
 
 function getTaskNoteToggleLabel(task) {
   if (!hasLoadedStatuses) {
-    return "Syncing notes";
+    return "Syncing";
   }
 
   if (!noteColumnAvailable) {
-    return "Notes unavailable";
+    return "Notes off";
   }
 
   if (getTaskNoteUiState(task) === "saving") {
@@ -332,7 +332,7 @@ function getTaskNoteToggleLabel(task) {
   }
 
   if (isTaskNoteDirty(task)) {
-    return "Editing note";
+    return "Editing";
   }
 
   if (isTaskNoteEditorOpen(task)) {
@@ -642,7 +642,6 @@ function renderTaskRow(task) {
           <div class="task-summary">
             <span class="task-floor">${escapeHtml(task.floor)}</span>
             ${PAGE_OWNER ? "" : `<span class="who-badge ${owner.badgeClass}">${owner.label}</span>`}
-            <span class="task-flow">to xlsx</span>
           </div>
           ${hasNote && !noteOpen ? `
             <div class="task-note-preview" title="${escapeHtml(notePreview)}">
@@ -726,7 +725,7 @@ function renderBoard() {
         <article class="card building-card ${getGroupCardClass(group)}">
           <div class="building-card-head">
             <div class="building-card-copy">
-              <span class="est-tag">EST ${group.est} / Writing</span>
+              <span class="est-tag">EST ${group.est}</span>
               <h2 class="bname">${escapeHtml(group.building)}</h2>
               ${getGroupHighlightsHtml(group)}
             </div>

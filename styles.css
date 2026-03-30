@@ -492,9 +492,9 @@ h1 {
 
 .task-row-main {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
 
 .task-primary {
@@ -525,19 +525,9 @@ h1 {
 }
 
 .task-actions {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.task-flow {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .task-note-preview {
@@ -593,13 +583,13 @@ h1 {
 .note-toggle-btn {
   min-height: 36px;
   padding: 0 14px;
+  width: 100%;
   border: 1px solid rgba(17, 32, 44, 0.1);
   border-radius: 999px;
   background: #fff;
   color: var(--text);
   font-size: 12px;
   font-weight: 800;
-  white-space: nowrap;
   cursor: pointer;
   transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
 }
@@ -736,7 +726,8 @@ h1 {
 }
 
 .status-btn {
-  min-width: 104px;
+  width: 100%;
+  min-width: 0;
   min-height: 36px;
   padding: 0 12px;
   border: none;
@@ -812,24 +803,16 @@ h1 {
     justify-content: flex-start;
   }
 
-  .task-row-main {
-    flex-direction: column;
-  }
-
   .task-floor {
     justify-content: center;
   }
 
   .task-note-preview,
-  .task-actions,
   .note-toolbar,
-  .note-toggle-btn,
-  .status-btn,
   .note-save-btn {
     width: 100%;
   }
 
-  .task-actions,
   .note-toolbar {
     align-items: stretch;
   }
