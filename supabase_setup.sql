@@ -8,7 +8,16 @@ alter table public.task_statuses
   add column if not exists est smallint,
   add column if not exists building text,
   add column if not exists floor_name text,
-  add column if not exists owner text check (owner in ('sarah', 'hossam'));
+  add column if not exists owner text check (owner in ('sarah', 'hossam')),
+  add column if not exists note text;
+
+update public.task_statuses
+set note = ''
+where note is null;
+
+alter table public.task_statuses
+  alter column note set default '',
+  alter column note set not null;
 
 alter table public.task_statuses enable row level security;
 alter table public.task_statuses replica identity full;

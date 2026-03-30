@@ -317,21 +317,62 @@ h1 {
   border-top: 4px solid var(--hossam);
 }
 
-.task-card {
+.card-shared {
+  border-top: 4px solid var(--accent);
+}
+
+.building-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.task-card-top {
+.building-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
-.task-card-body {
+.building-card-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.building-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.building-count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #f4f8fb;
+  border: 1px solid rgba(17, 32, 44, 0.08);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.owner-stack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.building-task-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -341,7 +382,6 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 12px;
   padding: 5px 10px;
   border-radius: 999px;
   background: var(--accent-soft);
@@ -366,10 +406,27 @@ h1 {
   line-height: 1.3;
 }
 
-.task-floor-row {
+.task-row {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f8fbfd;
+  border: 1px solid rgba(17, 32, 44, 0.08);
+}
+
+.task-row-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.task-summary {
+  display: flex;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
@@ -384,6 +441,14 @@ h1 {
   border: 1px solid rgba(17, 32, 44, 0.08);
   font-size: 13px;
   font-weight: 700;
+}
+
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .task-flow {
@@ -415,30 +480,100 @@ h1 {
   color: var(--hossam);
 }
 
-.task-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+.note-block {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  align-items: center;
-  padding: 11px 12px;
-  border-radius: 16px;
-  background: #f8fbfd;
-  border: 1px solid rgba(17, 32, 44, 0.08);
 }
 
-.task-row + .task-row {
-  margin-top: 8px;
-}
-
-.floor-name {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.arrow {
+.note-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--muted);
+}
+
+.note-input {
+  width: 100%;
+  min-height: 92px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(17, 32, 44, 0.12);
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.note-input:focus {
+  outline: 2px solid rgba(15, 118, 110, 0.14);
+  border-color: rgba(15, 118, 110, 0.34);
+}
+
+.note-input:disabled {
+  background: #eef3f7;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.note-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.note-status {
   font-size: 12px;
   font-weight: 700;
+}
+
+.note-status.is-muted,
+.note-status.is-idle {
+  color: var(--muted);
+}
+
+.note-status.is-dirty {
+  color: #b45309;
+}
+
+.note-status.is-saving {
+  color: #1d4ed8;
+}
+
+.note-status.is-saved {
+  color: #15803d;
+}
+
+.note-status.is-error {
+  color: #b91c1c;
+}
+
+.note-save-btn {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(17, 32, 44, 0.1);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.note-save-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+
+.note-save-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .status-btn {
@@ -451,10 +586,6 @@ h1 {
   font-weight: 800;
   cursor: pointer;
   transition: transform 0.16s ease, opacity 0.16s ease;
-}
-
-.task-status-btn {
-  width: 100%;
 }
 
 .status-btn:hover {
@@ -509,20 +640,30 @@ h1 {
     grid-template-columns: 1fr;
   }
 
-  .task-row {
-    grid-template-columns: 1fr;
+  .building-meta {
+    justify-content: flex-start;
   }
 
-  .task-floor-row {
+  .owner-stack,
+  .task-actions {
+    justify-content: flex-start;
+  }
+
+  .task-row-head {
     align-items: stretch;
   }
 
   .task-floor {
-    width: 100%;
     justify-content: center;
   }
 
-  .status-btn {
+  .note-toolbar,
+  .status-btn,
+  .note-save-btn {
     width: 100%;
+  }
+
+  .note-toolbar {
+    align-items: stretch;
   }
 }

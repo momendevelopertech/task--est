@@ -83,13 +83,18 @@ const stateClass = {
   done: "s-done"
 };
 
-const statusesByKey = {};
-const statusesById = {};
+const taskRecordsByKey = {};
+const taskRecordsById = {};
+const noteDraftsByKey = {};
+const noteUiStateByKey = {};
 const availableTaskKeys = new Set();
+const dirtyNoteKeys = new Set();
+
 let activeStatus = null;
 let idMode = null;
 let warningMessage = "";
 let taskKeyColumnAvailable = false;
+let noteColumnAvailable = false;
 let hasLoadedStatuses = false;
 
 const statsEl = document.getElementById("stats");
@@ -110,6 +115,10 @@ function escapeHtml(value) {
 
 function hasOwn(map, key) {
   return Object.prototype.hasOwnProperty.call(map, key);
+}
+
+function normalizeNoteValue(value) {
+  return typeof value === "string" ? value.replace(/\r\n/g, "\n") : "";
 }
 
 function setDot(state) {
@@ -138,16 +147,53 @@ function clearWarning() {
   setWarning("");
 }
 
-function clearStatuses() {
+function clearTransientWarning() {
+  if (
+    warningMessage.startsWith("Save failed for") ||
+    warningMessage.startsWith("Note save failed for") ||
+    warningMessage.startsWith("Please wait")
+  ) {
+    clearWarning();
+  }
+}
+
+function clearTaskData() {
   availableTaskKeys.clear();
+  dirtyNoteKeys.clear();
 
-  Object.keys(statusesByKey).forEach((key) => {
-    delete statusesByKey[key];
+  [
+    taskRecordsByKey,
+    taskRecordsById,
+    noteDraftsByKey,
+    noteUiStateByKey
+  ].forEach((map) => {
+    Object.keys(map).forEach((key) => {
+      delete map[key];
+    });
   });
+}
 
-  Object.keys(statusesById).forEach((key) => {
-    delete statusesById[key];
-  });
+function setMapField(map, key, field, value) {
+  const existing = map[key];
+
+  if (value === undefined) {
+    if (!existing) {
+      return;
+    }
+
+    const next = { ...existing };
+    delete next[field];
+
+    if (Object.keys(next).length) {
+      map[key] = next;
+    } else {
+      delete map[key];
+    }
+
+    return;
+  }
+
+  map[key] = { ...(existing || {}), [field]: value };
 }
 
 function detectIdMode(rows) {
@@ -211,71 +257,111 @@ function getScopedTasks() {
   return PAGE_OWNER ? tasks.filter((task) => task.owner === PAGE_OWNER) : tasks;
 }
 
-function getTaskState(task) {
-  if (availableTaskKeys.has(task.taskKey) && hasOwn(statusesByKey, task.taskKey)) {
-    return statusesByKey[task.taskKey];
+function getStoredTaskRecord(task) {
+  if (availableTaskKeys.has(task.taskKey) && hasOwn(taskRecordsByKey, task.taskKey)) {
+    return taskRecordsByKey[task.taskKey];
   }
 
   const legacyId = getLegacyDisplayId(task);
-  if (hasOwn(statusesById, legacyId)) {
-    return statusesById[legacyId];
+  if (hasOwn(taskRecordsById, legacyId)) {
+    return taskRecordsById[legacyId];
   }
 
-  return "todo";
+  return null;
 }
 
-function applyRowStatus(row) {
-  if (!row || typeof row.status !== "string") {
+function getTaskState(task) {
+  const record = getStoredTaskRecord(task);
+  return typeof record?.status === "string" ? record.status : "todo";
+}
+
+function getPersistedTaskNote(task) {
+  const record = getStoredTaskRecord(task);
+  return normalizeNoteValue(record?.note);
+}
+
+function getDisplayedTaskNote(task) {
+  if (hasOwn(noteDraftsByKey, task.taskKey)) {
+    return noteDraftsByKey[task.taskKey];
+  }
+
+  return getPersistedTaskNote(task);
+}
+
+function getTaskNoteUiState(task) {
+  return noteUiStateByKey[task.taskKey] || "idle";
+}
+
+function isTaskNoteDirty(task) {
+  return dirtyNoteKeys.has(task.taskKey);
+}
+
+function applyRowData(row) {
+  if (!row) {
     return;
   }
 
   if (typeof row.task_key === "string" && knownTaskKeys.has(row.task_key)) {
     availableTaskKeys.add(row.task_key);
-    statusesByKey[row.task_key] = row.status;
+
+    if (typeof row.status === "string") {
+      setMapField(taskRecordsByKey, row.task_key, "status", row.status);
+    }
+
+    if (typeof row.note === "string") {
+      const normalizedNote = normalizeNoteValue(row.note);
+      setMapField(taskRecordsByKey, row.task_key, "note", normalizedNote);
+
+      if (!dirtyNoteKeys.has(row.task_key)) {
+        noteDraftsByKey[row.task_key] = normalizedNote;
+        if (noteUiStateByKey[row.task_key] !== "saved") {
+          noteUiStateByKey[row.task_key] = "idle";
+        }
+      }
+    }
   }
 
   if (Number.isInteger(row.id)) {
-    statusesById[row.id] = row.status;
+    if (typeof row.status === "string") {
+      setMapField(taskRecordsById, row.id, "status", row.status);
+    }
+
+    if (typeof row.note === "string") {
+      setMapField(taskRecordsById, row.id, "note", normalizeNoteValue(row.note));
+    }
   }
 }
 
-function captureTaskSnapshot(task) {
+function captureTaskStatusSnapshot(task) {
   const legacyId = getLegacyDisplayId(task);
 
   return {
     taskKey: task.taskKey,
     hasConfirmedTaskKey: availableTaskKeys.has(task.taskKey),
-    hasKeyStatus: hasOwn(statusesByKey, task.taskKey),
-    keyStatus: statusesByKey[task.taskKey],
+    keyStatus: taskRecordsByKey[task.taskKey]?.status,
     legacyId,
-    hasLegacyStatus: hasOwn(statusesById, legacyId),
-    legacyStatus: statusesById[legacyId]
+    legacyStatus: taskRecordsById[legacyId]?.status
   };
 }
 
-function restoreTaskSnapshot(snapshot) {
-  if (snapshot.hasConfirmedTaskKey && snapshot.hasKeyStatus) {
+function restoreTaskStatusSnapshot(snapshot) {
+  if (snapshot.hasConfirmedTaskKey) {
     availableTaskKeys.add(snapshot.taskKey);
-    statusesByKey[snapshot.taskKey] = snapshot.keyStatus;
+    setMapField(taskRecordsByKey, snapshot.taskKey, "status", snapshot.keyStatus);
   } else {
-    if (!snapshot.hasConfirmedTaskKey) {
-      availableTaskKeys.delete(snapshot.taskKey);
-    }
-    delete statusesByKey[snapshot.taskKey];
+    availableTaskKeys.delete(snapshot.taskKey);
+    setMapField(taskRecordsByKey, snapshot.taskKey, "status", undefined);
   }
 
-  if (snapshot.hasLegacyStatus) {
-    statusesById[snapshot.legacyId] = snapshot.legacyStatus;
-  } else {
-    delete statusesById[snapshot.legacyId];
-  }
+  setMapField(taskRecordsById, snapshot.legacyId, "status", snapshot.legacyStatus);
 }
 
-function setOptimisticTaskState(task, nextState) {
+function setOptimisticTaskStatus(task, nextState) {
   if (availableTaskKeys.has(task.taskKey)) {
-    statusesByKey[task.taskKey] = nextState;
+    setMapField(taskRecordsByKey, task.taskKey, "status", nextState);
   }
-  statusesById[getLegacyDisplayId(task)] = nextState;
+
+  setMapField(taskRecordsById, getLegacyDisplayId(task), "status", nextState);
 }
 
 function getVisibleTasks() {
@@ -283,6 +369,28 @@ function getVisibleTasks() {
   return activeStatus
     ? scopedTasks.filter((task) => getTaskState(task) === activeStatus)
     : scopedTasks;
+}
+
+function buildTaskGroups(tasksToRender) {
+  const groups = new Map();
+
+  tasksToRender.forEach((task) => {
+    const key = `${task.est}|||${task.building}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        est: task.est,
+        building: task.building,
+        owners: new Set(),
+        items: []
+      });
+    }
+
+    const group = groups.get(key);
+    group.owners.add(task.owner);
+    group.items.push(task);
+  });
+
+  return Array.from(groups.values());
 }
 
 function renderStats() {
@@ -327,12 +435,177 @@ function toggleStatusFilter(status) {
   render();
 }
 
+function getGroupCardClass(group) {
+  const owners = Array.from(group.owners);
+  if (owners.length === 1) {
+    return ownerMeta[owners[0]].cardClass;
+  }
+
+  return "card-shared";
+}
+
+function getGroupMetaHtml(group) {
+  const floorLabel = `${group.items.length} ${group.items.length === 1 ? "Floor" : "Floors"}`;
+
+  if (PAGE_OWNER) {
+    const owner = ownerMeta[PAGE_OWNER];
+    return `
+      <div class="building-meta">
+        <span class="building-count">${floorLabel}</span>
+        <span class="who-badge ${owner.badgeClass}">${owner.label}</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="building-meta">
+      <span class="building-count">${floorLabel}</span>
+      <div class="owner-stack">
+        ${Array.from(group.owners).map((ownerKey) => `
+          <span class="who-badge ${ownerMeta[ownerKey].badgeClass}">${ownerMeta[ownerKey].label}</span>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function getTaskNoteStatusInfo(task) {
+  if (!hasLoadedStatuses) {
+    return { label: "Waiting for first sync...", className: "note-status is-muted" };
+  }
+
+  if (!noteColumnAvailable) {
+    return { label: "Run SQL migration to enable notes", className: "note-status is-muted" };
+  }
+
+  const uiState = getTaskNoteUiState(task);
+
+  if (uiState === "saving") {
+    return { label: "Saving note...", className: "note-status is-saving" };
+  }
+
+  if (uiState === "error") {
+    return { label: "Could not save note", className: "note-status is-error" };
+  }
+
+  if (uiState === "dirty") {
+    return { label: "Unsaved changes", className: "note-status is-dirty" };
+  }
+
+  if (uiState === "saved") {
+    return { label: "Note saved", className: "note-status is-saved" };
+  }
+
+  return getPersistedTaskNote(task)
+    ? { label: "Saved to board", className: "note-status is-idle" }
+    : { label: "No note yet", className: "note-status is-idle" };
+}
+
+function canSaveTaskNote(task) {
+  if (!hasLoadedStatuses || !noteColumnAvailable) {
+    return false;
+  }
+
+  return isTaskNoteDirty(task) || getTaskNoteUiState(task) === "error";
+}
+
+function getTaskNoteButtonLabel(task) {
+  return getTaskNoteUiState(task) === "error" ? "Retry Save" : "Save Note";
+}
+
+function getTaskNotePlaceholder() {
+  if (!hasLoadedStatuses) {
+    return "Waiting for the first sync...";
+  }
+
+  if (!noteColumnAvailable) {
+    return "Run the latest Supabase SQL migration to enable notes.";
+  }
+
+  return "Add a note for this floor, for example: room missing.";
+}
+
+function syncTaskNoteUi(task) {
+  const row = boardEl.querySelector(`[data-task-key="${task.taskKey}"]`);
+  if (!row) {
+    return;
+  }
+
+  const saveButton = row.querySelector("[data-note-save]");
+  const noteStatus = row.querySelector("[data-note-state]");
+
+  if (saveButton) {
+    saveButton.disabled = !canSaveTaskNote(task);
+    saveButton.textContent = getTaskNoteButtonLabel(task);
+  }
+
+  if (noteStatus) {
+    const statusInfo = getTaskNoteStatusInfo(task);
+    noteStatus.className = statusInfo.className;
+    noteStatus.textContent = statusInfo.label;
+  }
+}
+
+function renderTaskRow(task) {
+  const owner = ownerMeta[task.owner];
+  const state = getTaskState(task);
+  const displayedNote = getDisplayedTaskNote(task);
+  const noteStatusInfo = getTaskNoteStatusInfo(task);
+  const noteDisabled = !hasLoadedStatuses || !noteColumnAvailable;
+
+  return `
+    <div class="task-row" data-task-key="${escapeHtml(task.taskKey)}">
+      <div class="task-row-head">
+        <div class="task-summary">
+          <span class="task-floor">${escapeHtml(task.floor)}</span>
+          <span class="task-flow">to xlsx</span>
+        </div>
+
+        <div class="task-actions">
+          ${PAGE_OWNER ? "" : `<span class="who-badge ${owner.badgeClass}">${owner.label}</span>`}
+          <button
+            type="button"
+            class="status-btn ${stateClass[state]}"
+            onclick="cycleStatus(${task.idx})"
+            ${hasLoadedStatuses ? "" : "disabled"}
+            aria-label="Change status for ${escapeHtml(task.building)} ${escapeHtml(task.floor)}"
+          >${stateLabel[state]}</button>
+        </div>
+      </div>
+
+      <div class="note-block">
+        <label class="note-label" for="task-note-${task.idx}">Note</label>
+        <textarea
+          id="task-note-${task.idx}"
+          class="note-input"
+          rows="3"
+          placeholder="${escapeHtml(getTaskNotePlaceholder())}"
+          oninput="updateNoteDraft(event, ${task.idx})"
+          onkeydown="handleNoteKeydown(event, ${task.idx})"
+          ${noteDisabled ? "disabled" : ""}
+        >${escapeHtml(displayedNote)}</textarea>
+
+        <div class="note-toolbar">
+          <span class="${noteStatusInfo.className}" data-note-state>${escapeHtml(noteStatusInfo.label)}</span>
+          <button
+            type="button"
+            class="note-save-btn"
+            data-note-save
+            onclick="saveNote(${task.idx})"
+            ${canSaveTaskNote(task) ? "" : "disabled"}
+          >${escapeHtml(getTaskNoteButtonLabel(task))}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderBoard() {
-  const visibleTasks = getVisibleTasks();
+  const groups = buildTaskGroups(getVisibleTasks());
   const byEst = { 1: [], 2: [] };
 
-  visibleTasks.forEach((task) => {
-    byEst[task.est].push(task);
+  groups.forEach((group) => {
+    byEst[group.est].push(group);
   });
 
   let html = "";
@@ -344,32 +617,20 @@ function renderBoard() {
 
     html += `<section class="est-section"><div class="est-label">EST ${est}</div><div class="grid">`;
 
-    byEst[est].forEach((task) => {
-      const owner = ownerMeta[task.owner];
-      const state = getTaskState(task);
-
+    byEst[est].forEach((group) => {
       html += `
-        <article class="card task-card ${owner.cardClass}" data-task-key="${escapeHtml(task.taskKey)}">
-          <div class="task-card-top">
-            <span class="est-tag">EST ${task.est} / Writing</span>
-            <span class="who-badge ${owner.badgeClass}">${owner.label}</span>
-          </div>
-
-          <div class="task-card-body">
-            <h2 class="bname">${escapeHtml(task.building)}</h2>
-            <div class="task-floor-row">
-              <span class="task-floor">${escapeHtml(task.floor)}</span>
-              <span class="task-flow">to xlsx</span>
+        <article class="card building-card ${getGroupCardClass(group)}">
+          <div class="building-card-head">
+            <div class="building-card-copy">
+              <span class="est-tag">EST ${group.est} / Writing</span>
+              <h2 class="bname">${escapeHtml(group.building)}</h2>
             </div>
+            ${getGroupMetaHtml(group)}
           </div>
 
-          <button
-            type="button"
-            class="status-btn task-status-btn ${stateClass[state]}"
-            onclick="cycleStatus(${task.idx})"
-            ${hasLoadedStatuses ? "" : "disabled"}
-            aria-label="Change status for ${escapeHtml(task.building)} ${escapeHtml(task.floor)}"
-          >${stateLabel[state]}</button>
+          <div class="building-task-list">
+            ${group.items.map((task) => renderTaskRow(task)).join("")}
+          </div>
         </article>
       `;
     });
@@ -399,34 +660,78 @@ function getTaskKeyGuidance() {
   return "Run the latest supabase_setup.sql so every task gets a stable task_key. That prevents one floor from inheriting another floor's status if task order ever changes.";
 }
 
-function isMissingTaskKeyError(error) {
-  const message = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""}`.toLowerCase();
-  return message.includes("task_key");
+function getNoteGuidance() {
+  return "Run the latest supabase_setup.sql to enable per-floor notes for every task.";
 }
 
-async function selectStatusRows() {
-  let response = await sb.from("task_statuses").select("id,status,task_key").order("id");
+function getSelectableColumns() {
+  const columns = ["id", "status"];
 
-  if (!response.error) {
-    return { ...response, hasTaskKeyColumn: true };
+  if (taskKeyColumnAvailable) {
+    columns.push("task_key");
   }
 
-  if (!isMissingTaskKeyError(response.error)) {
-    return { ...response, hasTaskKeyColumn: false };
+  if (noteColumnAvailable) {
+    columns.push("note");
   }
 
-  response = await sb.from("task_statuses").select("id,status").order("id");
-  return { ...response, hasTaskKeyColumn: false };
+  return columns.join(",");
+}
+
+async function selectTaskRows() {
+  const fullResponse = await sb.from("task_statuses").select("id,status,task_key,note").order("id");
+  if (!fullResponse.error) {
+    return { ...fullResponse, hasTaskKeyColumn: true, hasNoteColumn: true };
+  }
+
+  const taskKeyResponse = await sb.from("task_statuses").select("id,status,task_key").order("id");
+  if (!taskKeyResponse.error) {
+    return { ...taskKeyResponse, hasTaskKeyColumn: true, hasNoteColumn: false };
+  }
+
+  const basicResponse = await sb.from("task_statuses").select("id,status").order("id");
+  if (!basicResponse.error) {
+    return { ...basicResponse, hasTaskKeyColumn: false, hasNoteColumn: false };
+  }
+
+  return { data: null, error: fullResponse.error, hasTaskKeyColumn: false, hasNoteColumn: false };
+}
+
+function buildCapabilitiesWarning(rows) {
+  const matchedTaskKeys = rows.filter((row) => typeof row.task_key === "string" && knownTaskKeys.has(row.task_key)).length;
+
+  if (!rows.length) {
+    return getSetupGuidance();
+  }
+
+  if (rows.length < EXPECTED_TASK_COUNT) {
+    return `Loaded ${rows.length} visible rows for ${EXPECTED_TASK_COUNT} tasks. Seed the missing rows in Supabase and confirm anon select/update policies exist.`;
+  }
+
+  const messages = [];
+
+  if (!taskKeyColumnAvailable) {
+    messages.push(`${getTaskKeyGuidance()} The dashboard is still running on legacy numeric IDs.`);
+  } else if (matchedTaskKeys < EXPECTED_TASK_COUNT) {
+    messages.push(`Loaded ${matchedTaskKeys} stable task keys for ${EXPECTED_TASK_COUNT} tasks. ${getTaskKeyGuidance()}`);
+  }
+
+  if (!noteColumnAvailable) {
+    messages.push(getNoteGuidance());
+  }
+
+  return messages.join(" ");
 }
 
 async function loadStatuses() {
   setDot("saving");
-  clearStatuses();
+  clearTaskData();
   hasLoadedStatuses = false;
 
-  const { data, error, hasTaskKeyColumn } = await selectStatusRows();
+  const { data, error, hasTaskKeyColumn, hasNoteColumn } = await selectTaskRows();
 
   taskKeyColumnAvailable = hasTaskKeyColumn;
+  noteColumnAvailable = hasNoteColumn;
 
   if (error) {
     setWarning(`Could not load task statuses from Supabase: ${error.message}`);
@@ -439,19 +744,12 @@ async function loadStatuses() {
   idMode = detectIdMode(rows);
 
   rows.forEach((row) => {
-    applyRowStatus(row);
+    applyRowData(row);
   });
 
-  const matchedTaskKeys = rows.filter((row) => typeof row.task_key === "string" && knownTaskKeys.has(row.task_key)).length;
-
-  if (!rows.length) {
-    setWarning(getSetupGuidance());
-  } else if (rows.length < EXPECTED_TASK_COUNT) {
-    setWarning(`Loaded ${rows.length} visible rows for ${EXPECTED_TASK_COUNT} tasks. Seed the missing rows in Supabase and confirm anon select/update policies exist.`);
-  } else if (!taskKeyColumnAvailable) {
-    setWarning(`${getTaskKeyGuidance()} The dashboard is still running on legacy numeric IDs.`);
-  } else if (matchedTaskKeys < EXPECTED_TASK_COUNT) {
-    setWarning(`Loaded ${matchedTaskKeys} stable task keys for ${EXPECTED_TASK_COUNT} tasks. ${getTaskKeyGuidance()}`);
+  const capabilitiesWarning = buildCapabilitiesWarning(rows);
+  if (capabilitiesWarning) {
+    setWarning(capabilitiesWarning);
   } else {
     clearWarning();
   }
@@ -461,40 +759,35 @@ async function loadStatuses() {
   render();
 }
 
-async function persistStatusByTaskKey(task, nextState) {
+async function persistTaskByTaskKey(task, patch) {
   const { data, error } = await sb
     .from("task_statuses")
-    .update({ status: nextState })
+    .update(patch)
     .eq("task_key", task.taskKey)
-    .select("id,status,task_key");
+    .select(getSelectableColumns());
 
   if (error) {
-    if (isMissingTaskKeyError(error)) {
-      return { ok: false, needsLegacyFallback: true };
-    }
-
-    return { ok: false, error };
+    return { ok: false, error, needsLegacyFallback: true };
   }
 
   if (Array.isArray(data) && data.length > 0) {
     inferIdModeFromRowId(data[0].id);
-    applyRowStatus(data[0]);
+    applyRowData(data[0]);
     return { ok: true, row: data[0] };
   }
 
   return { ok: false, needsLegacyFallback: true };
 }
 
-async function persistStatusByLegacyId(task, nextState) {
+async function persistTaskByLegacyId(task, patch) {
   let lastError = null;
-  const selectColumns = taskKeyColumnAvailable ? "id,status,task_key" : "id,status";
 
   for (const dbId of getLegacyWriteIds(task)) {
     const { data, error } = await sb
       .from("task_statuses")
-      .update({ status: nextState })
+      .update(patch)
       .eq("id", dbId)
-      .select(selectColumns);
+      .select(getSelectableColumns());
 
     if (error) {
       lastError = error;
@@ -503,7 +796,7 @@ async function persistStatusByLegacyId(task, nextState) {
 
     if (Array.isArray(data) && data.length > 0) {
       inferIdModeFromRowId(data[0].id);
-      applyRowStatus(data[0]);
+      applyRowData(data[0]);
       return { ok: true, row: data[0] };
     }
   }
@@ -513,13 +806,28 @@ async function persistStatusByLegacyId(task, nextState) {
 
 async function persistStatus(task, nextState) {
   if (taskKeyColumnAvailable) {
-    const keyResult = await persistStatusByTaskKey(task, nextState);
-    if (keyResult.ok || !keyResult.needsLegacyFallback) {
-      return keyResult;
+    const taskKeyResult = await persistTaskByTaskKey(task, { status: nextState });
+    if (taskKeyResult.ok || !taskKeyResult.needsLegacyFallback) {
+      return taskKeyResult;
     }
   }
 
-  return persistStatusByLegacyId(task, nextState);
+  return persistTaskByLegacyId(task, { status: nextState });
+}
+
+async function persistNote(task, nextNote) {
+  if (!noteColumnAvailable) {
+    return { ok: false, noteUnavailable: true };
+  }
+
+  if (taskKeyColumnAvailable) {
+    const taskKeyResult = await persistTaskByTaskKey(task, { note: nextNote });
+    if (taskKeyResult.ok || !taskKeyResult.needsLegacyFallback) {
+      return taskKeyResult;
+    }
+  }
+
+  return persistTaskByLegacyId(task, { note: nextNote });
 }
 
 async function cycleStatus(taskIdx) {
@@ -536,22 +844,93 @@ async function cycleStatus(taskIdx) {
 
   const current = getTaskState(task);
   const next = stateOrder[(stateOrder.indexOf(current) + 1) % stateOrder.length];
-  const snapshot = captureTaskSnapshot(task);
+  const snapshot = captureTaskStatusSnapshot(task);
 
-  setOptimisticTaskState(task, next);
+  setOptimisticTaskStatus(task, next);
   render();
   setDot("saving");
 
   const result = await persistStatus(task, next);
 
   if (result.ok) {
+    clearTransientWarning();
     setDot("ok");
     render();
     return;
   }
 
-  restoreTaskSnapshot(snapshot);
+  restoreTaskStatusSnapshot(snapshot);
   setWarning(`Save failed for "${task.building} / ${task.floor}". Check the row visibility, RLS policies, and run the updated supabase_setup.sql so task_key values stay aligned with each floor.`);
+  setDot("red");
+  render();
+}
+
+function updateNoteDraft(event, taskIdx) {
+  const task = tasks[taskIdx];
+  if (!task) {
+    return;
+  }
+
+  noteDraftsByKey[task.taskKey] = normalizeNoteValue(event.target.value);
+
+  if (noteDraftsByKey[task.taskKey] === getPersistedTaskNote(task)) {
+    dirtyNoteKeys.delete(task.taskKey);
+    if (noteUiStateByKey[task.taskKey] !== "saving") {
+      noteUiStateByKey[task.taskKey] = "idle";
+    }
+  } else {
+    dirtyNoteKeys.add(task.taskKey);
+    noteUiStateByKey[task.taskKey] = "dirty";
+  }
+
+  syncTaskNoteUi(task);
+}
+
+function handleNoteKeydown(event, taskIdx) {
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    event.preventDefault();
+    saveNote(taskIdx);
+  }
+}
+
+async function saveNote(taskIdx) {
+  if (!hasLoadedStatuses) {
+    setWarning("Please wait for the dashboard to finish syncing before saving a note.");
+    render();
+    return;
+  }
+
+  if (!noteColumnAvailable) {
+    setWarning(getNoteGuidance());
+    render();
+    return;
+  }
+
+  const task = tasks[taskIdx];
+  if (!task) {
+    return;
+  }
+
+  const nextNote = getDisplayedTaskNote(task);
+
+  noteUiStateByKey[task.taskKey] = "saving";
+  syncTaskNoteUi(task);
+  setDot("saving");
+
+  const result = await persistNote(task, nextNote);
+
+  if (result.ok) {
+    dirtyNoteKeys.delete(task.taskKey);
+    noteDraftsByKey[task.taskKey] = nextNote;
+    noteUiStateByKey[task.taskKey] = "saved";
+    clearTransientWarning();
+    setDot("ok");
+    render();
+    return;
+  }
+
+  noteUiStateByKey[task.taskKey] = "error";
+  setWarning(`Note save failed for "${task.building} / ${task.floor}". ${result.noteUnavailable ? getNoteGuidance() : "Check Supabase update access and try again."}`);
   setDot("red");
   render();
 }
@@ -565,20 +944,23 @@ filterButtons.forEach((button) => {
 sb.channel("task_statuses_live")
   .on("postgres_changes", { event: "*", schema: "public", table: "task_statuses" }, (payload) => {
     if (payload?.new?.task_key && knownTaskKeys.has(payload.new.task_key)) {
-      applyRowStatus(payload.new);
+      applyRowData(payload.new);
       render();
       return;
     }
 
     if (Number.isInteger(payload?.new?.id)) {
       inferIdModeFromRowId(payload.new.id);
-      applyRowStatus(payload.new);
+      applyRowData(payload.new);
       render();
     }
   })
   .subscribe();
 
 window.cycleStatus = cycleStatus;
+window.updateNoteDraft = updateNoteDraft;
+window.handleNoteKeydown = handleNoteKeydown;
+window.saveNote = saveNote;
 
 render();
 loadStatuses();
