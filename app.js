@@ -87,6 +87,18 @@ function renderButtonContent(iconName, label) {
   `;
 }
 
+function getStatusMeaning(status) {
+  if (status === "wip") {
+    return "This task is currently being worked on.";
+  }
+
+  if (status === "done") {
+    return "This task is finished.";
+  }
+
+  return "This task has not started yet.";
+}
+
 const roleMeta = {
   admin: { label: "Admin", eyebrow: "Admin View" },
   lead: { label: "Lead", eyebrow: "Lead View" },
@@ -560,8 +572,12 @@ function renderStats() {
 
 function updateFilterButtons() {
   filterButtons.forEach((button) => {
-    button.classList.toggle("is-active", state.activeStatus === button.dataset.statusFilter);
-    button.setAttribute("aria-pressed", String(state.activeStatus === button.dataset.statusFilter));
+    const isActive = state.activeStatus === button.dataset.statusFilter;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+    if (button.dataset.statusFilter && stateLabel[button.dataset.statusFilter]) {
+      button.title = getStatusFilterTooltip(button.dataset.statusFilter, isActive);
+    }
   });
 }
 
@@ -777,6 +793,73 @@ function setButtonLabel(button, label) {
   }
 }
 
+function setButtonTooltip(button, tooltip) {
+  if (!button) {
+    return;
+  }
+
+  button.title = tooltip;
+}
+
+function getStatusFilterTooltip(status, isActive) {
+  const action = isActive
+    ? "Click again to clear this filter."
+    : "Click to show only tasks with this status.";
+
+  return `${stateLabel[status]}. ${getStatusMeaning(status)} ${action}`;
+}
+
+function getTaskNoteTooltip(task) {
+  if (!state.loaded) {
+    return "Please wait until the board finishes syncing.";
+  }
+
+  if (getTaskNoteUiState(task) === "saving") {
+    return "The note is being saved right now.";
+  }
+
+  if (isTaskNoteEditorOpen(task)) {
+    return "Hide the note editor for this task.";
+  }
+
+  return taskHasNote(task)
+    ? "Open the existing note to review or edit it."
+    : "Add a note for extra context on this task.";
+}
+
+function getTaskStatusTooltip(task) {
+  const currentIndex = stateOrder.indexOf(task.status);
+  const nextStatus = stateOrder[(currentIndex + 1) % stateOrder.length];
+
+  return `Current status: ${stateLabel[task.status]}. ${getStatusMeaning(task.status)} Click to change it to ${stateLabel[nextStatus]}.`;
+}
+
+function getTaskSaveTooltip(task) {
+  if (!state.loaded) {
+    return "Please wait until the board finishes syncing.";
+  }
+
+  if (getTaskNoteUiState(task) === "error") {
+    return "Try saving the note again.";
+  }
+
+  if (isTaskNoteDirty(task)) {
+    return "Save your note changes to the board.";
+  }
+
+  return "Save the current note.";
+}
+
+function getTaskMissingTooltip(task) {
+  if (!state.missingSupported) {
+    return "Run the latest SQL setup first to enable the missing flag.";
+  }
+
+  return taskIsMissing(task)
+    ? "Remove the missing flag when this item becomes available again."
+    : "Mark this item as missing if the floor or files are not available.";
+}
+
 function shouldShowAssigneeBadge(task) {
   if (!state.currentUser) {
     return false;
@@ -798,6 +881,7 @@ function syncTaskNoteUi(task) {
   if (saveButton) {
     saveButton.disabled = !canSaveTaskNote(task);
     setButtonLabel(saveButton, getTaskNoteButtonLabel(task));
+    setButtonTooltip(saveButton, getTaskSaveTooltip(task));
   }
 
   if (noteStatus) {
@@ -810,6 +894,7 @@ function syncTaskNoteUi(task) {
     noteToggle.disabled = !canToggleTaskNote(task);
     setButtonLabel(noteToggle, getTaskNoteToggleLabel(task));
     noteToggle.setAttribute("aria-expanded", String(isTaskNoteEditorOpen(task)));
+    setButtonTooltip(noteToggle, getTaskNoteTooltip(task));
   }
 }
 
@@ -847,7 +932,7 @@ function renderTaskRow(task) {
               ${canToggleTaskMissing() ? "" : "disabled"}
               aria-pressed="${missing ? "true" : "false"}"
               aria-label="${escapeHtml(missing ? `Remove missing flag from ${task.building} ${task.floor_name}` : `Mark ${task.building} ${task.floor_name} as missing`)}"
-              title="${escapeHtml(state.missingSupported ? getTaskMissingToggleLabel(task) : "Missing flag needs SQL support")}"
+              title="${escapeHtml(getTaskMissingTooltip(task))}"
             >${renderButtonContent("missing", missing ? "Clear missing" : "Mark missing")}</button>
           ` : ""}
           <button
@@ -858,6 +943,7 @@ function renderTaskRow(task) {
             ${canToggleTaskNote(task) ? "" : "disabled"}
             aria-expanded="${noteOpen ? "true" : "false"}"
             aria-controls="note-panel-${task.id}"
+            title="${escapeHtml(getTaskNoteTooltip(task))}"
           >${renderButtonContent("note", getTaskNoteToggleLabel(task))}</button>
           <button
             type="button"
@@ -865,6 +951,7 @@ function renderTaskRow(task) {
             onclick="cycleStatus(${task.id})"
             ${state.loaded ? "" : "disabled"}
             aria-label="Change status for ${escapeHtml(task.building)} ${escapeHtml(task.floor_name)}"
+            title="${escapeHtml(getTaskStatusTooltip(task))}"
           >${renderButtonContent(getStatusIconName(task.status), stateLabel[task.status])}</button>
         </div>
       </div>
@@ -891,6 +978,7 @@ function renderTaskRow(task) {
               data-note-save
               onclick="saveNote(${task.id})"
               ${canSaveTaskNote(task) ? "" : "disabled"}
+              title="${escapeHtml(getTaskSaveTooltip(task))}"
             >${renderButtonContent("save", getTaskNoteButtonLabel(task))}</button>
           </div>
         </div>
@@ -1988,6 +2076,7 @@ function bindFilterButtons() {
     if (status && stateLabel[status]) {
       button.innerHTML = renderButtonContent(getStatusIconName(status), stateLabel[status]);
       button.setAttribute("aria-label", stateLabel[status]);
+      button.title = getStatusFilterTooltip(status, state.activeStatus === status);
     }
 
     if (button.dataset.bound === "true") {
