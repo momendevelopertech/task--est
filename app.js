@@ -89,6 +89,7 @@ const noteDraftsByKey = {};
 const noteUiStateByKey = {};
 const availableTaskKeys = new Set();
 const dirtyNoteKeys = new Set();
+const noteEditorOpenKeys = new Set();
 
 let activeStatus = null;
 let idMode = null;
@@ -296,6 +297,51 @@ function isTaskNoteDirty(task) {
   return dirtyNoteKeys.has(task.taskKey);
 }
 
+function taskHasNote(task) {
+  return Boolean(getDisplayedTaskNote(task).trim() || getPersistedTaskNote(task).trim());
+}
+
+function getTaskNotePreview(task) {
+  return (getDisplayedTaskNote(task).trim() || getPersistedTaskNote(task).trim()).replace(/\s+/g, " ");
+}
+
+function isTaskNoteEditorOpen(task) {
+  const uiState = getTaskNoteUiState(task);
+  return noteEditorOpenKeys.has(task.taskKey) || dirtyNoteKeys.has(task.taskKey) || uiState === "saving" || uiState === "error";
+}
+
+function canToggleTaskNote(task) {
+  if (!hasLoadedStatuses || !noteColumnAvailable) {
+    return false;
+  }
+
+  return getTaskNoteUiState(task) !== "saving" && !isTaskNoteDirty(task);
+}
+
+function getTaskNoteToggleLabel(task) {
+  if (!hasLoadedStatuses) {
+    return "Syncing notes";
+  }
+
+  if (!noteColumnAvailable) {
+    return "Notes unavailable";
+  }
+
+  if (getTaskNoteUiState(task) === "saving") {
+    return "Saving...";
+  }
+
+  if (isTaskNoteDirty(task)) {
+    return "Editing note";
+  }
+
+  if (isTaskNoteEditorOpen(task)) {
+    return "Hide note";
+  }
+
+  return taskHasNote(task) ? "Edit note" : "Add note";
+}
+
 function applyRowData(row) {
   if (!row) {
     return;
@@ -381,13 +427,19 @@ function buildTaskGroups(tasksToRender) {
         est: task.est,
         building: task.building,
         owners: new Set(),
-        items: []
+        items: [],
+        totals: { todo: 0, wip: 0, done: 0 },
+        noteCount: 0
       });
     }
 
     const group = groups.get(key);
     group.owners.add(task.owner);
     group.items.push(task);
+    group.totals[getTaskState(task)] += 1;
+    if (taskHasNote(task)) {
+      group.noteCount += 1;
+    }
   });
 
   return Array.from(groups.values());
@@ -444,14 +496,35 @@ function getGroupCardClass(group) {
   return "card-shared";
 }
 
-function getGroupMetaHtml(group) {
+function getGroupStateChipsHtml(group) {
+  return stateOrder
+    .filter((state) => group.totals[state] > 0)
+    .map((state) => `
+      <span class="summary-chip is-${state}">${group.totals[state]} ${escapeHtml(stateLabel[state])}</span>
+    `)
+    .join("");
+}
+
+function getGroupHighlightsHtml(group) {
   const floorLabel = `${group.items.length} ${group.items.length === 1 ? "Floor" : "Floors"}`;
+  const noteLabel = group.noteCount === 1 ? "1 Note" : `${group.noteCount} Notes`;
+
+  return `
+    <div class="building-highlights">
+      <span class="summary-chip">${floorLabel}</span>
+      ${group.noteCount ? `<span class="summary-chip">${noteLabel}</span>` : ""}
+      ${getGroupStateChipsHtml(group)}
+    </div>
+  `;
+}
+
+function getGroupMetaHtml(group) {
+  const orderedOwners = ["sarah", "hossam"].filter((ownerKey) => group.owners.has(ownerKey));
 
   if (PAGE_OWNER) {
     const owner = ownerMeta[PAGE_OWNER];
     return `
       <div class="building-meta">
-        <span class="building-count">${floorLabel}</span>
         <span class="who-badge ${owner.badgeClass}">${owner.label}</span>
       </div>
     `;
@@ -459,9 +532,8 @@ function getGroupMetaHtml(group) {
 
   return `
     <div class="building-meta">
-      <span class="building-count">${floorLabel}</span>
       <div class="owner-stack">
-        ${Array.from(group.owners).map((ownerKey) => `
+        ${orderedOwners.map((ownerKey) => `
           <span class="who-badge ${ownerMeta[ownerKey].badgeClass}">${ownerMeta[ownerKey].label}</span>
         `).join("")}
       </div>
@@ -471,7 +543,7 @@ function getGroupMetaHtml(group) {
 
 function getTaskNoteStatusInfo(task) {
   if (!hasLoadedStatuses) {
-    return { label: "Waiting for first sync...", className: "note-status is-muted" };
+    return { label: "Waiting for sync...", className: "note-status is-muted" };
   }
 
   if (!noteColumnAvailable) {
@@ -481,11 +553,11 @@ function getTaskNoteStatusInfo(task) {
   const uiState = getTaskNoteUiState(task);
 
   if (uiState === "saving") {
-    return { label: "Saving note...", className: "note-status is-saving" };
+    return { label: "Saving...", className: "note-status is-saving" };
   }
 
   if (uiState === "error") {
-    return { label: "Could not save note", className: "note-status is-error" };
+    return { label: "Save failed", className: "note-status is-error" };
   }
 
   if (uiState === "dirty") {
@@ -493,12 +565,12 @@ function getTaskNoteStatusInfo(task) {
   }
 
   if (uiState === "saved") {
-    return { label: "Note saved", className: "note-status is-saved" };
+    return { label: "Saved", className: "note-status is-saved" };
   }
 
   return getPersistedTaskNote(task)
-    ? { label: "Saved to board", className: "note-status is-idle" }
-    : { label: "No note yet", className: "note-status is-idle" };
+    ? { label: "Saved on board", className: "note-status is-idle" }
+    : { label: "Optional", className: "note-status is-idle" };
 }
 
 function canSaveTaskNote(task) {
@@ -522,7 +594,7 @@ function getTaskNotePlaceholder() {
     return "Run the latest Supabase SQL migration to enable notes.";
   }
 
-  return "Add a note for this floor, for example: room missing.";
+  return "Add an optional note for this floor.";
 }
 
 function syncTaskNoteUi(task) {
@@ -533,10 +605,17 @@ function syncTaskNoteUi(task) {
 
   const saveButton = row.querySelector("[data-note-save]");
   const noteStatus = row.querySelector("[data-note-state]");
+  const noteToggle = row.querySelector("[data-note-toggle]");
 
   if (saveButton) {
     saveButton.disabled = !canSaveTaskNote(task);
     saveButton.textContent = getTaskNoteButtonLabel(task);
+  }
+
+  if (noteToggle) {
+    noteToggle.disabled = !canToggleTaskNote(task);
+    noteToggle.textContent = getTaskNoteToggleLabel(task);
+    noteToggle.setAttribute("aria-expanded", String(isTaskNoteEditorOpen(task)));
   }
 
   if (noteStatus) {
@@ -551,18 +630,38 @@ function renderTaskRow(task) {
   const state = getTaskState(task);
   const displayedNote = getDisplayedTaskNote(task);
   const noteStatusInfo = getTaskNoteStatusInfo(task);
+  const noteOpen = isTaskNoteEditorOpen(task);
+  const hasNote = taskHasNote(task);
+  const notePreview = getTaskNotePreview(task);
   const noteDisabled = !hasLoadedStatuses || !noteColumnAvailable;
 
   return `
-    <div class="task-row" data-task-key="${escapeHtml(task.taskKey)}">
-      <div class="task-row-head">
-        <div class="task-summary">
-          <span class="task-floor">${escapeHtml(task.floor)}</span>
-          <span class="task-flow">to xlsx</span>
+    <div class="task-row is-${state}${hasNote ? " has-note" : ""}" data-task-key="${escapeHtml(task.taskKey)}">
+      <div class="task-row-main">
+        <div class="task-primary">
+          <div class="task-summary">
+            <span class="task-floor">${escapeHtml(task.floor)}</span>
+            ${PAGE_OWNER ? "" : `<span class="who-badge ${owner.badgeClass}">${owner.label}</span>`}
+            <span class="task-flow">to xlsx</span>
+          </div>
+          ${hasNote && !noteOpen ? `
+            <div class="task-note-preview" title="${escapeHtml(notePreview)}">
+              <span class="task-note-kicker">Note</span>
+              <p>${escapeHtml(notePreview)}</p>
+            </div>
+          ` : ""}
         </div>
 
         <div class="task-actions">
-          ${PAGE_OWNER ? "" : `<span class="who-badge ${owner.badgeClass}">${owner.label}</span>`}
+          <button
+            type="button"
+            class="note-toggle-btn${hasNote ? " has-content" : ""}"
+            data-note-toggle
+            onclick="toggleNoteEditor(${task.idx})"
+            ${canToggleTaskNote(task) ? "" : "disabled"}
+            aria-expanded="${noteOpen ? "true" : "false"}"
+            aria-controls="note-panel-${task.idx}"
+          >${escapeHtml(getTaskNoteToggleLabel(task))}</button>
           <button
             type="button"
             class="status-btn ${stateClass[state]}"
@@ -573,29 +672,34 @@ function renderTaskRow(task) {
         </div>
       </div>
 
-      <div class="note-block">
-        <label class="note-label" for="task-note-${task.idx}">Note</label>
-        <textarea
-          id="task-note-${task.idx}"
-          class="note-input"
-          rows="3"
-          placeholder="${escapeHtml(getTaskNotePlaceholder())}"
-          oninput="updateNoteDraft(event, ${task.idx})"
-          onkeydown="handleNoteKeydown(event, ${task.idx})"
-          ${noteDisabled ? "disabled" : ""}
-        >${escapeHtml(displayedNote)}</textarea>
+      ${noteOpen ? `
+        <div class="note-panel" id="note-panel-${task.idx}">
+          <div class="note-panel-head">
+            <label class="note-label" for="task-note-${task.idx}">Floor note</label>
+            <span class="note-hint">Optional</span>
+          </div>
+          <textarea
+            id="task-note-${task.idx}"
+            class="note-input"
+            rows="3"
+            placeholder="${escapeHtml(getTaskNotePlaceholder())}"
+            oninput="updateNoteDraft(event, ${task.idx})"
+            onkeydown="handleNoteKeydown(event, ${task.idx})"
+            ${noteDisabled ? "disabled" : ""}
+          >${escapeHtml(displayedNote)}</textarea>
 
-        <div class="note-toolbar">
-          <span class="${noteStatusInfo.className}" data-note-state>${escapeHtml(noteStatusInfo.label)}</span>
-          <button
-            type="button"
-            class="note-save-btn"
-            data-note-save
-            onclick="saveNote(${task.idx})"
-            ${canSaveTaskNote(task) ? "" : "disabled"}
-          >${escapeHtml(getTaskNoteButtonLabel(task))}</button>
+          <div class="note-toolbar">
+            <span class="${noteStatusInfo.className}" data-note-state>${escapeHtml(noteStatusInfo.label)}</span>
+            <button
+              type="button"
+              class="note-save-btn"
+              data-note-save
+              onclick="saveNote(${task.idx})"
+              ${canSaveTaskNote(task) ? "" : "disabled"}
+            >${escapeHtml(getTaskNoteButtonLabel(task))}</button>
+          </div>
         </div>
-      </div>
+      ` : ""}
     </div>
   `;
 }
@@ -624,6 +728,7 @@ function renderBoard() {
             <div class="building-card-copy">
               <span class="est-tag">EST ${group.est} / Writing</span>
               <h2 class="bname">${escapeHtml(group.building)}</h2>
+              ${getGroupHighlightsHtml(group)}
             </div>
             ${getGroupMetaHtml(group)}
           </div>
@@ -893,6 +998,34 @@ function handleNoteKeydown(event, taskIdx) {
   }
 }
 
+function toggleNoteEditor(taskIdx) {
+  if (!hasLoadedStatuses) {
+    setWarning("Please wait for the dashboard to finish syncing before editing a note.");
+    render();
+    return;
+  }
+
+  if (!noteColumnAvailable) {
+    setWarning(getNoteGuidance());
+    render();
+    return;
+  }
+
+  const task = tasks[taskIdx];
+  if (!task) {
+    return;
+  }
+
+  if (noteEditorOpenKeys.has(task.taskKey)) {
+    noteEditorOpenKeys.delete(task.taskKey);
+  } else {
+    noteEditorOpenKeys.add(task.taskKey);
+  }
+
+  clearTransientWarning();
+  render();
+}
+
 async function saveNote(taskIdx) {
   if (!hasLoadedStatuses) {
     setWarning("Please wait for the dashboard to finish syncing before saving a note.");
@@ -960,6 +1093,7 @@ sb.channel("task_statuses_live")
 window.cycleStatus = cycleStatus;
 window.updateNoteDraft = updateNoteDraft;
 window.handleNoteKeydown = handleNoteKeydown;
+window.toggleNoteEditor = toggleNoteEditor;
 window.saveNote = saveNote;
 
 render();
