@@ -10,59 +10,66 @@ const ownerMeta = {
   hossam: { label: "Hossam", badgeClass: "wb-hossam", cardClass: "card-hossam", tone: "tone-hossam" }
 };
 
-const tasks = [
-  { est: 1, building: "Future - Engineering", floor: "Ground", owner: "sarah" },
-  { est: 1, building: "Future - Engineering", floor: "1st floor", owner: "sarah" },
-  { est: 1, building: "Future - Engineering", floor: "2nd floor", owner: "hossam" },
-  { est: 1, building: "Future - Engineering", floor: "3rd floor", owner: "hossam" },
-  { est: 1, building: "Future - Pharmacy", floor: "Basement", owner: "sarah" },
-  { est: 1, building: "Future - Pharmacy", floor: "Ground", owner: "sarah" },
-  { est: 1, building: "Future - Pharmacy", floor: "1st floor", owner: "sarah" },
-  { est: 1, building: "Future - Pharmacy", floor: "2nd floor", owner: "hossam" },
-  { est: 1, building: "Future - Pharmacy", floor: "3rd floor", owner: "hossam" },
-  { est: 1, building: "Future - Political Science", floor: "Basement", owner: "sarah" },
-  { est: 1, building: "Future - Political Science", floor: "Ground", owner: "sarah" },
-  { est: 1, building: "Future - Political Science", floor: "1st floor", owner: "hossam" },
-  { est: 1, building: "Future - Political Science", floor: "2nd floor", owner: "hossam" },
-  { est: 1, building: "Future - Business", floor: "Basement", owner: "sarah" },
-  { est: 1, building: "Future - Business", floor: "1st floor", owner: "sarah" },
-  { est: 1, building: "Future - Business", floor: "2nd floor", owner: "hossam" },
-  { est: 1, building: "Future - Business", floor: "3rd floor", owner: "hossam" },
-  { est: 1, building: "Future - Dentistry", floor: "Ground", owner: "sarah" },
-  { est: 1, building: "Future - Dentistry", floor: "1st floor", owner: "sarah" },
-  { est: 1, building: "Future - Dentistry", floor: "2nd floor", owner: "hossam" },
-  { est: 1, building: "Alex - Engineering B", floor: "1st floor", owner: "sarah" },
-  { est: 1, building: "Alex - Engineering B", floor: "2nd floor", owner: "sarah" },
-  { est: 1, building: "Alex - Engineering B", floor: "3rd floor", owner: "hossam" },
-  { est: 1, building: "Alex - Engineering B", floor: "4th floor", owner: "hossam" },
-  { est: 1, building: "Alex - Pharmacy", floor: "2nd floor", owner: "sarah" },
-  { est: 1, building: "Alex - Pharmacy", floor: "3rd floor", owner: "sarah" },
-  { est: 1, building: "Alex - Pharmacy", floor: "4th floor", owner: "hossam" },
-  { est: 1, building: "Alex - Pharmacy", floor: "5th floor", owner: "hossam" },
-  { est: 1, building: "Damietta - Engineering", floor: "2nd floor", owner: "sarah" },
-  { est: 1, building: "Damietta - Engineering", floor: "3rd floor", owner: "hossam" },
-  { est: 1, building: "Damietta - Engineering", floor: "4th floor", owner: "hossam" },
-  { est: 2, building: "Alex - Pharmacy", floor: "2nd floor", owner: "sarah" },
-  { est: 2, building: "Alex - Pharmacy", floor: "3rd floor", owner: "sarah" },
-  { est: 2, building: "Alex - Pharmacy", floor: "4th floor", owner: "hossam" },
-  { est: 2, building: "Alex - Pharmacy", floor: "5th floor", owner: "hossam" },
-  { est: 2, building: "Damietta - Medicine", floor: "1st floor", owner: "hossam" },
-  { est: 2, building: "Future - Political Sc", floor: "Ground", owner: "sarah" },
-  { est: 2, building: "Future - Political Sc", floor: "1st floor", owner: "sarah" },
-  { est: 2, building: "Future - Political Sc", floor: "2nd floor", owner: "hossam" },
-  { est: 2, building: "Future - Political Sc", floor: "Basement", owner: "hossam" },
-  { est: 2, building: "Future - Business", floor: "1st floor", owner: "sarah" },
-  { est: 2, building: "Future - Business", floor: "2nd floor", owner: "sarah" },
-  { est: 2, building: "Future - Business", floor: "3rd floor", owner: "hossam" },
-  { est: 2, building: "Future - Business", floor: "Basement", owner: "hossam" }
-].map((task, idx) => ({
-  ...task,
+const taskDefinitions = [
+  ["1__future-engineering__ground__sarah", 1, "Future - Engineering", "Ground", "sarah"],
+  ["1__future-engineering__1st-floor__sarah", 1, "Future - Engineering", "1st floor", "sarah"],
+  ["1__future-engineering__2nd-floor__hossam", 1, "Future - Engineering", "2nd floor", "hossam"],
+  ["1__future-engineering__3rd-floor__hossam", 1, "Future - Engineering", "3rd floor", "hossam"],
+  ["1__future-pharmacy__basement__sarah", 1, "Future - Pharmacy", "Basement", "sarah"],
+  ["1__future-pharmacy__ground__sarah", 1, "Future - Pharmacy", "Ground", "sarah"],
+  ["1__future-pharmacy__1st-floor__sarah", 1, "Future - Pharmacy", "1st floor", "sarah"],
+  ["1__future-pharmacy__2nd-floor__hossam", 1, "Future - Pharmacy", "2nd floor", "hossam"],
+  ["1__future-pharmacy__3rd-floor__hossam", 1, "Future - Pharmacy", "3rd floor", "hossam"],
+  ["1__future-political-science__basement__sarah", 1, "Future - Political Science", "Basement", "sarah"],
+  ["1__future-political-science__ground__sarah", 1, "Future - Political Science", "Ground", "sarah"],
+  ["1__future-political-science__1st-floor__hossam", 1, "Future - Political Science", "1st floor", "hossam"],
+  ["1__future-political-science__2nd-floor__hossam", 1, "Future - Political Science", "2nd floor", "hossam"],
+  ["1__future-business__basement__sarah", 1, "Future - Business", "Basement", "sarah"],
+  ["1__future-business__1st-floor__sarah", 1, "Future - Business", "1st floor", "sarah"],
+  ["1__future-business__2nd-floor__hossam", 1, "Future - Business", "2nd floor", "hossam"],
+  ["1__future-business__3rd-floor__hossam", 1, "Future - Business", "3rd floor", "hossam"],
+  ["1__future-dentistry__ground__sarah", 1, "Future - Dentistry", "Ground", "sarah"],
+  ["1__future-dentistry__1st-floor__sarah", 1, "Future - Dentistry", "1st floor", "sarah"],
+  ["1__future-dentistry__2nd-floor__hossam", 1, "Future - Dentistry", "2nd floor", "hossam"],
+  ["1__alex-engineering-b__1st-floor__sarah", 1, "Alex - Engineering B", "1st floor", "sarah"],
+  ["1__alex-engineering-b__2nd-floor__sarah", 1, "Alex - Engineering B", "2nd floor", "sarah"],
+  ["1__alex-engineering-b__3rd-floor__hossam", 1, "Alex - Engineering B", "3rd floor", "hossam"],
+  ["1__alex-engineering-b__4th-floor__hossam", 1, "Alex - Engineering B", "4th floor", "hossam"],
+  ["1__alex-pharmacy__2nd-floor__sarah", 1, "Alex - Pharmacy", "2nd floor", "sarah"],
+  ["1__alex-pharmacy__3rd-floor__sarah", 1, "Alex - Pharmacy", "3rd floor", "sarah"],
+  ["1__alex-pharmacy__4th-floor__hossam", 1, "Alex - Pharmacy", "4th floor", "hossam"],
+  ["1__alex-pharmacy__5th-floor__hossam", 1, "Alex - Pharmacy", "5th floor", "hossam"],
+  ["1__damietta-engineering__2nd-floor__sarah", 1, "Damietta - Engineering", "2nd floor", "sarah"],
+  ["1__damietta-engineering__3rd-floor__hossam", 1, "Damietta - Engineering", "3rd floor", "hossam"],
+  ["1__damietta-engineering__4th-floor__hossam", 1, "Damietta - Engineering", "4th floor", "hossam"],
+  ["2__alex-pharmacy__2nd-floor__sarah", 2, "Alex - Pharmacy", "2nd floor", "sarah"],
+  ["2__alex-pharmacy__3rd-floor__sarah", 2, "Alex - Pharmacy", "3rd floor", "sarah"],
+  ["2__alex-pharmacy__4th-floor__hossam", 2, "Alex - Pharmacy", "4th floor", "hossam"],
+  ["2__alex-pharmacy__5th-floor__hossam", 2, "Alex - Pharmacy", "5th floor", "hossam"],
+  ["2__damietta-medicine__1st-floor__hossam", 2, "Damietta - Medicine", "1st floor", "hossam"],
+  ["2__future-political-sc__ground__sarah", 2, "Future - Political Sc", "Ground", "sarah"],
+  ["2__future-political-sc__1st-floor__sarah", 2, "Future - Political Sc", "1st floor", "sarah"],
+  ["2__future-political-sc__2nd-floor__hossam", 2, "Future - Political Sc", "2nd floor", "hossam"],
+  ["2__future-political-sc__basement__hossam", 2, "Future - Political Sc", "Basement", "hossam"],
+  ["2__future-business__1st-floor__sarah", 2, "Future - Business", "1st floor", "sarah"],
+  ["2__future-business__2nd-floor__sarah", 2, "Future - Business", "2nd floor", "sarah"],
+  ["2__future-business__3rd-floor__hossam", 2, "Future - Business", "3rd floor", "hossam"],
+  ["2__future-business__basement__hossam", 2, "Future - Business", "Basement", "hossam"]
+];
+
+const tasks = taskDefinitions.map(([taskKey, est, building, floor, owner], idx) => ({
+  taskKey,
+  est,
+  building,
+  floor,
+  owner,
   idx,
   zeroBasedId: idx,
   oneBasedId: idx + 1
 }));
 
 const EXPECTED_TASK_COUNT = tasks.length;
+const knownTaskKeys = new Set(tasks.map((task) => task.taskKey));
 const stateOrder = ["todo", "wip", "done"];
 const stateLabel = {
   todo: "To Do",
@@ -76,10 +83,14 @@ const stateClass = {
   done: "s-done"
 };
 
-const statuses = {};
+const statusesByKey = {};
+const statusesById = {};
+const availableTaskKeys = new Set();
 let activeStatus = null;
 let idMode = null;
 let warningMessage = "";
+let taskKeyColumnAvailable = false;
+let hasLoadedStatuses = false;
 
 const statsEl = document.getElementById("stats");
 const boardEl = document.getElementById("board");
@@ -95,6 +106,10 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function hasOwn(map, key) {
+  return Object.prototype.hasOwnProperty.call(map, key);
 }
 
 function setDot(state) {
@@ -124,13 +139,24 @@ function clearWarning() {
 }
 
 function clearStatuses() {
-  Object.keys(statuses).forEach((key) => {
-    delete statuses[key];
+  availableTaskKeys.clear();
+
+  Object.keys(statusesByKey).forEach((key) => {
+    delete statusesByKey[key];
+  });
+
+  Object.keys(statusesById).forEach((key) => {
+    delete statusesById[key];
   });
 }
 
 function detectIdMode(rows) {
-  const ids = new Set(rows.map((row) => row.id));
+  const ids = new Set(
+    rows
+      .map((row) => row.id)
+      .filter((value) => Number.isInteger(value))
+  );
+
   if (!ids.size) {
     return null;
   }
@@ -150,7 +176,7 @@ function detectIdMode(rows) {
     return "one-based";
   }
 
-  if (ids.has(0) && !ids.has(1)) {
+  if (ids.has(0)) {
     return "zero-based";
   }
 
@@ -165,12 +191,20 @@ function inferIdModeFromRowId(rowId) {
   }
 }
 
-function getCandidateDbIds(task) {
-  const orderedIds = idMode === "one-based"
-    ? [task.oneBasedId, task.zeroBasedId]
-    : [task.zeroBasedId, task.oneBasedId];
+function getLegacyDisplayId(task) {
+  return idMode === "one-based" ? task.oneBasedId : task.zeroBasedId;
+}
 
-  return Array.from(new Set(orderedIds));
+function getLegacyWriteIds(task) {
+  if (idMode === "one-based") {
+    return [task.oneBasedId];
+  }
+
+  if (idMode === "zero-based") {
+    return [task.zeroBasedId];
+  }
+
+  return [task.zeroBasedId, task.oneBasedId];
 }
 
 function getScopedTasks() {
@@ -178,13 +212,70 @@ function getScopedTasks() {
 }
 
 function getTaskState(task) {
-  for (const dbId of getCandidateDbIds(task)) {
-    if (statuses[dbId]) {
-      return statuses[dbId];
-    }
+  if (availableTaskKeys.has(task.taskKey) && hasOwn(statusesByKey, task.taskKey)) {
+    return statusesByKey[task.taskKey];
+  }
+
+  const legacyId = getLegacyDisplayId(task);
+  if (hasOwn(statusesById, legacyId)) {
+    return statusesById[legacyId];
   }
 
   return "todo";
+}
+
+function applyRowStatus(row) {
+  if (!row || typeof row.status !== "string") {
+    return;
+  }
+
+  if (typeof row.task_key === "string" && knownTaskKeys.has(row.task_key)) {
+    availableTaskKeys.add(row.task_key);
+    statusesByKey[row.task_key] = row.status;
+  }
+
+  if (Number.isInteger(row.id)) {
+    statusesById[row.id] = row.status;
+  }
+}
+
+function captureTaskSnapshot(task) {
+  const legacyId = getLegacyDisplayId(task);
+
+  return {
+    taskKey: task.taskKey,
+    hasConfirmedTaskKey: availableTaskKeys.has(task.taskKey),
+    hasKeyStatus: hasOwn(statusesByKey, task.taskKey),
+    keyStatus: statusesByKey[task.taskKey],
+    legacyId,
+    hasLegacyStatus: hasOwn(statusesById, legacyId),
+    legacyStatus: statusesById[legacyId]
+  };
+}
+
+function restoreTaskSnapshot(snapshot) {
+  if (snapshot.hasConfirmedTaskKey && snapshot.hasKeyStatus) {
+    availableTaskKeys.add(snapshot.taskKey);
+    statusesByKey[snapshot.taskKey] = snapshot.keyStatus;
+  } else {
+    if (!snapshot.hasConfirmedTaskKey) {
+      availableTaskKeys.delete(snapshot.taskKey);
+    }
+    delete statusesByKey[snapshot.taskKey];
+  }
+
+  if (snapshot.hasLegacyStatus) {
+    statusesById[snapshot.legacyId] = snapshot.legacyStatus;
+  } else {
+    delete statusesById[snapshot.legacyId];
+  }
+}
+
+function setOptimisticTaskState(task, nextState) {
+  if (availableTaskKeys.has(task.taskKey)) {
+    statusesByKey[task.taskKey] = nextState;
+  }
+  statusesById[getLegacyDisplayId(task)] = nextState;
 }
 
 function getVisibleTasks() {
@@ -236,32 +327,12 @@ function toggleStatusFilter(status) {
   render();
 }
 
-function buildGroups(tasksToRender) {
-  const groups = new Map();
-
-  tasksToRender.forEach((task) => {
-    const key = `${task.est}|||${task.building}|||${task.owner}`;
-    if (!groups.has(key)) {
-      groups.set(key, {
-        est: task.est,
-        building: task.building,
-        owner: task.owner,
-        items: []
-      });
-    }
-
-    groups.get(key).items.push(task);
-  });
-
-  return Array.from(groups.values());
-}
-
 function renderBoard() {
-  const grouped = buildGroups(getVisibleTasks());
+  const visibleTasks = getVisibleTasks();
   const byEst = { 1: [], 2: [] };
 
-  grouped.forEach((group) => {
-    byEst[group.est].push(group);
+  visibleTasks.forEach((task) => {
+    byEst[task.est].push(task);
   });
 
   let html = "";
@@ -273,28 +344,37 @@ function renderBoard() {
 
     html += `<section class="est-section"><div class="est-label">EST ${est}</div><div class="grid">`;
 
-    byEst[est].forEach((group) => {
-      const owner = ownerMeta[group.owner];
+    byEst[est].forEach((task) => {
+      const owner = ownerMeta[task.owner];
+      const state = getTaskState(task);
 
-      html += `<article class="card ${owner.cardClass}">`;
-      html += `<div class="est-tag">EST ${est} · Writing</div>`;
-      html += `<div class="card-head"><h2 class="bname">${escapeHtml(group.building)}</h2><span class="who-badge ${owner.badgeClass}">${owner.label}</span></div>`;
-
-      group.items.forEach((task) => {
-        const state = getTaskState(task);
-        html += `
-          <div class="task-row">
-            <div class="floor-name">${escapeHtml(task.floor)}</div>
-            <span class="arrow">to xlsx</span>
-            <button type="button" class="status-btn ${stateClass[state]}" onclick="cycleStatus(${task.idx})">${stateLabel[state]}</button>
+      html += `
+        <article class="card task-card ${owner.cardClass}" data-task-key="${escapeHtml(task.taskKey)}">
+          <div class="task-card-top">
+            <span class="est-tag">EST ${task.est} / Writing</span>
+            <span class="who-badge ${owner.badgeClass}">${owner.label}</span>
           </div>
-        `;
-      });
 
-      html += `</article>`;
+          <div class="task-card-body">
+            <h2 class="bname">${escapeHtml(task.building)}</h2>
+            <div class="task-floor-row">
+              <span class="task-floor">${escapeHtml(task.floor)}</span>
+              <span class="task-flow">to xlsx</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="status-btn task-status-btn ${stateClass[state]}"
+            onclick="cycleStatus(${task.idx})"
+            ${hasLoadedStatuses ? "" : "disabled"}
+            aria-label="Change status for ${escapeHtml(task.building)} ${escapeHtml(task.floor)}"
+          >${stateLabel[state]}</button>
+        </article>
+      `;
     });
 
-    html += `</div></section>`;
+    html += "</div></section>";
   });
 
   if (!html) {
@@ -312,14 +392,41 @@ function render() {
 }
 
 function getSetupGuidance() {
-  return "Supabase returned 0 visible rows for task_statuses. This usually means the table is empty for the anon role, or RLS blocks select. Run supabase_setup.sql once in the Supabase SQL Editor.";
+  return "Supabase returned 0 visible rows for task_statuses. Run supabase_setup.sql once in the Supabase SQL Editor.";
+}
+
+function getTaskKeyGuidance() {
+  return "Run the latest supabase_setup.sql so every task gets a stable task_key. That prevents one floor from inheriting another floor's status if task order ever changes.";
+}
+
+function isMissingTaskKeyError(error) {
+  const message = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""}`.toLowerCase();
+  return message.includes("task_key");
+}
+
+async function selectStatusRows() {
+  let response = await sb.from("task_statuses").select("id,status,task_key").order("id");
+
+  if (!response.error) {
+    return { ...response, hasTaskKeyColumn: true };
+  }
+
+  if (!isMissingTaskKeyError(response.error)) {
+    return { ...response, hasTaskKeyColumn: false };
+  }
+
+  response = await sb.from("task_statuses").select("id,status").order("id");
+  return { ...response, hasTaskKeyColumn: false };
 }
 
 async function loadStatuses() {
   setDot("saving");
   clearStatuses();
+  hasLoadedStatuses = false;
 
-  const { data, error } = await sb.from("task_statuses").select("id,status").order("id");
+  const { data, error, hasTaskKeyColumn } = await selectStatusRows();
+
+  taskKeyColumnAvailable = hasTaskKeyColumn;
 
   if (error) {
     setWarning(`Could not load task statuses from Supabase: ${error.message}`);
@@ -332,30 +439,62 @@ async function loadStatuses() {
   idMode = detectIdMode(rows);
 
   rows.forEach((row) => {
-    statuses[row.id] = row.status;
+    applyRowStatus(row);
   });
+
+  const matchedTaskKeys = rows.filter((row) => typeof row.task_key === "string" && knownTaskKeys.has(row.task_key)).length;
 
   if (!rows.length) {
     setWarning(getSetupGuidance());
   } else if (rows.length < EXPECTED_TASK_COUNT) {
     setWarning(`Loaded ${rows.length} visible rows for ${EXPECTED_TASK_COUNT} tasks. Seed the missing rows in Supabase and confirm anon select/update policies exist.`);
+  } else if (!taskKeyColumnAvailable) {
+    setWarning(`${getTaskKeyGuidance()} The dashboard is still running on legacy numeric IDs.`);
+  } else if (matchedTaskKeys < EXPECTED_TASK_COUNT) {
+    setWarning(`Loaded ${matchedTaskKeys} stable task keys for ${EXPECTED_TASK_COUNT} tasks. ${getTaskKeyGuidance()}`);
   } else {
     clearWarning();
   }
 
+  hasLoadedStatuses = true;
   setDot("ok");
   render();
 }
 
-async function persistStatus(task, nextState) {
-  let lastError = null;
+async function persistStatusByTaskKey(task, nextState) {
+  const { data, error } = await sb
+    .from("task_statuses")
+    .update({ status: nextState })
+    .eq("task_key", task.taskKey)
+    .select("id,status,task_key");
 
-  for (const dbId of getCandidateDbIds(task)) {
+  if (error) {
+    if (isMissingTaskKeyError(error)) {
+      return { ok: false, needsLegacyFallback: true };
+    }
+
+    return { ok: false, error };
+  }
+
+  if (Array.isArray(data) && data.length > 0) {
+    inferIdModeFromRowId(data[0].id);
+    applyRowStatus(data[0]);
+    return { ok: true, row: data[0] };
+  }
+
+  return { ok: false, needsLegacyFallback: true };
+}
+
+async function persistStatusByLegacyId(task, nextState) {
+  let lastError = null;
+  const selectColumns = taskKeyColumnAvailable ? "id,status,task_key" : "id,status";
+
+  for (const dbId of getLegacyWriteIds(task)) {
     const { data, error } = await sb
       .from("task_statuses")
       .update({ status: nextState })
       .eq("id", dbId)
-      .select("id,status");
+      .select(selectColumns);
 
     if (error) {
       lastError = error;
@@ -364,15 +503,32 @@ async function persistStatus(task, nextState) {
 
     if (Array.isArray(data) && data.length > 0) {
       inferIdModeFromRowId(data[0].id);
-      statuses[data[0].id] = data[0].status;
-      return { ok: true, dbId: data[0].id };
+      applyRowStatus(data[0]);
+      return { ok: true, row: data[0] };
     }
   }
 
   return { ok: false, error: lastError };
 }
 
+async function persistStatus(task, nextState) {
+  if (taskKeyColumnAvailable) {
+    const keyResult = await persistStatusByTaskKey(task, nextState);
+    if (keyResult.ok || !keyResult.needsLegacyFallback) {
+      return keyResult;
+    }
+  }
+
+  return persistStatusByLegacyId(task, nextState);
+}
+
 async function cycleStatus(taskIdx) {
+  if (!hasLoadedStatuses) {
+    setWarning("Please wait for the dashboard to finish syncing before changing a status.");
+    render();
+    return;
+  }
+
   const task = tasks[taskIdx];
   if (!task) {
     return;
@@ -380,37 +536,22 @@ async function cycleStatus(taskIdx) {
 
   const current = getTaskState(task);
   const next = stateOrder[(stateOrder.indexOf(current) + 1) % stateOrder.length];
-  const candidateIds = getCandidateDbIds(task);
-  const optimisticId = candidateIds[0];
-  const previousStates = Object.fromEntries(candidateIds.map((dbId) => [dbId, statuses[dbId]]));
+  const snapshot = captureTaskSnapshot(task);
 
-  statuses[optimisticId] = next;
+  setOptimisticTaskState(task, next);
   render();
   setDot("saving");
 
   const result = await persistStatus(task, next);
 
   if (result.ok) {
-    candidateIds.forEach((dbId) => {
-      if (dbId !== result.dbId) {
-        delete statuses[dbId];
-      }
-    });
-    statuses[result.dbId] = next;
     setDot("ok");
     render();
     return;
   }
 
-  candidateIds.forEach((dbId) => {
-    if (previousStates[dbId] === undefined) {
-      delete statuses[dbId];
-    } else {
-      statuses[dbId] = previousStates[dbId];
-    }
-  });
-
-  setWarning(`Save failed for "${task.building} / ${task.floor}". No visible database row accepted the update. Check task_statuses rows, row IDs, and anon RLS policies for select/update.`);
+  restoreTaskSnapshot(snapshot);
+  setWarning(`Save failed for "${task.building} / ${task.floor}". Check the row visibility, RLS policies, and run the updated supabase_setup.sql so task_key values stay aligned with each floor.`);
   setDot("red");
   render();
 }
@@ -421,11 +562,19 @@ filterButtons.forEach((button) => {
   });
 });
 
-sb.channel("task_statuses")
-  .on("postgres_changes", { event: "UPDATE", schema: "public", table: "task_statuses" }, (payload) => {
-    inferIdModeFromRowId(payload.new.id);
-    statuses[payload.new.id] = payload.new.status;
-    render();
+sb.channel("task_statuses_live")
+  .on("postgres_changes", { event: "*", schema: "public", table: "task_statuses" }, (payload) => {
+    if (payload?.new?.task_key && knownTaskKeys.has(payload.new.task_key)) {
+      applyRowStatus(payload.new);
+      render();
+      return;
+    }
+
+    if (Number.isInteger(payload?.new?.id)) {
+      inferIdModeFromRowId(payload.new.id);
+      applyRowStatus(payload.new);
+      render();
+    }
   })
   .subscribe();
 
