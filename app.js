@@ -61,6 +61,8 @@ const state = {
   modeMessage: "",
   memberEditorSlug: null,
   taskEditorId: null,
+  adminPanelOpen: false,
+  adminPanelTab: "people",
   noteDraftsById: {},
   noteUiStateById: {},
   noteEditorOpenIds: new Set(),
@@ -413,18 +415,39 @@ function renderPageHeader() {
 }
 
 function renderPageNav() {
-  const links = [
-    `<a class="page-link ${PAGE_MODE === "admin" ? "is-active" : ""}" href="/">Admin</a>`
-  ];
+  const links = [];
+  const currentUser = state.currentUser;
 
-  getActiveMembers()
-    .filter((member) => member.role !== "admin")
-    .forEach((member) => {
-      const active = PAGE_MODE === "member" && member.slug === state.currentUser?.slug;
+  if (isAdmin()) {
+    links.push(`<a class="page-link ${PAGE_MODE === "admin" ? "is-active" : ""}" href="/">Admin</a>`);
+
+    getActiveMembers()
+      .filter((member) => member.role !== "admin")
+      .forEach((member) => {
+        const active = PAGE_MODE === "member" && member.slug === currentUser?.slug;
+        links.push(
+          `<a class="page-link ${active ? "is-active" : ""}" href="/member/?user=${encodeURIComponent(member.slug)}">${escapeHtml(getShortName(member))}</a>`
+        );
+      });
+  } else if (isLead()) {
+    const visibleLeadScopeSlugs = new Set([currentUser?.slug, ...getDescendantSlugs(currentUser?.slug)]);
+    const visibleLeadScope = sortMembers(
+      getActiveMembers().filter((member) => {
+        return visibleLeadScopeSlugs.has(member.slug);
+      })
+    );
+
+    visibleLeadScope.forEach((member) => {
+      const active = member.slug === currentUser?.slug;
       links.push(
         `<a class="page-link ${active ? "is-active" : ""}" href="/member/?user=${encodeURIComponent(member.slug)}">${escapeHtml(getShortName(member))}</a>`
       );
     });
+  } else if (currentUser) {
+    links.push(
+      `<a class="page-link is-active" href="/member/?user=${encodeURIComponent(currentUser.slug)}">${escapeHtml(getShortName(currentUser))}</a>`
+    );
+  }
 
   navEl.innerHTML = links.join("");
 }
@@ -882,178 +905,326 @@ function getMemberEditorValue() {
   return state.memberEditorSlug ? getMemberBySlug(state.memberEditorSlug) : null;
 }
 
+function openAdminPanel(tab = state.adminPanelTab || "people", resetEditor = false) {
+  if (!isAdmin()) {
+    return;
+  }
+
+  state.adminPanelTab = tab === "tasks" ? "tasks" : "people";
+  state.adminPanelOpen = true;
+
+  if (resetEditor) {
+    if (state.adminPanelTab === "people") {
+      state.memberEditorSlug = null;
+    } else {
+      state.taskEditorId = null;
+    }
+  }
+
+  render();
+}
+
+function closeAdminPanel() {
+  if (!state.adminPanelOpen) {
+    return;
+  }
+
+  state.adminPanelOpen = false;
+  render();
+}
+
+function switchAdminPanelTab(tab) {
+  if (!isAdmin()) {
+    return;
+  }
+
+  state.adminPanelTab = tab === "tasks" ? "tasks" : "people";
+  state.adminPanelOpen = true;
+  render();
+}
+
+function handleAdminModalBackdrop(event) {
+  if (event.target === event.currentTarget) {
+    closeAdminPanel();
+  }
+}
+
+function renderMemberAdminPanel(editingMember, members) {
+  return `
+    <div class="admin-modal-panel-grid">
+      <article class="admin-card admin-editor-card">
+        <div class="panel-head">
+          <div>
+            <span class="panel-kicker">People</span>
+            <h3 class="panel-title">${editingMember ? "Edit Team Member" : "Add Team Member"}</h3>
+            <p class="panel-sub">${editingMember ? `Update ${escapeHtml(getDisplayName(editingMember))} and save when you are ready.` : "Create a new person, set their role, then place them under the right manager."}</p>
+          </div>
+          <button type="button" class="ghost-btn" onclick="resetMemberForm()">New person</button>
+        </div>
+
+        <form class="admin-form" onsubmit="saveMemberFromForm(event)">
+          <div class="form-grid">
+            <label class="field">
+              <span>Name</span>
+              <input name="display_name" type="text" value="${escapeHtml(editingMember?.display_name || "")}" placeholder="Mahmoud Feid" required>
+            </label>
+
+            <label class="field">
+              <span>Slug</span>
+              <input name="slug" type="text" value="${escapeHtml(editingMember?.slug || "")}" placeholder="mahmoud-feid" ${editingMember ? "readonly" : ""} required>
+            </label>
+
+            <label class="field">
+              <span>Role</span>
+              <select name="role">
+                ${["admin", "lead", "member"].map((role) => `<option value="${role}" ${(editingMember?.role || "member") === role ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Manager</span>
+              <select name="manager_slug">
+                ${getManagerOptions(editingMember?.manager_slug || "", editingMember?.slug || "")}
+              </select>
+            </label>
+
+            <label class="field field-wide">
+              <span>Accent</span>
+              <select name="accent_key">
+                ${getAccentOptions(editingMember?.accent_key || "accent")}
+              </select>
+            </label>
+          </div>
+
+          <div class="inline-actions">
+            <button type="submit" class="primary-btn">${editingMember ? "Save member" : "Add member"}</button>
+            <button type="button" class="ghost-btn" onclick="resetMemberForm()">Clear</button>
+          </div>
+        </form>
+      </article>
+
+      <article class="admin-card admin-list-card">
+        <div class="panel-head">
+          <div>
+            <span class="panel-kicker">Directory</span>
+            <h3 class="panel-title">Active Team</h3>
+            <p class="panel-sub">${members.length} people currently available in the dashboard.</p>
+          </div>
+        </div>
+
+        <div class="admin-list">
+          ${members.map((member) => `
+            <div class="admin-row">
+              <div class="admin-row-copy">
+                <strong>${escapeHtml(getDisplayName(member))}</strong>
+                <span>${escapeHtml(member.role)}${member.manager_slug ? ` - reports to ${escapeHtml(getDisplayName(member.manager_slug))}` : ""}</span>
+              </div>
+              <div class="admin-row-actions">
+                <button type="button" class="ghost-btn" onclick="editMember('${member.slug}')">Edit</button>
+                <button type="button" class="danger-btn" onclick="deleteMember('${member.slug}')">Delete</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </article>
+    </div>
+  `;
+}
+
+function renderTaskAdminPanel(editingTask, tasks) {
+  return `
+    <div class="admin-modal-panel-grid admin-modal-panel-grid-wide">
+      <article class="admin-card admin-editor-card">
+        <div class="panel-head">
+          <div>
+            <span class="panel-kicker">Tasks</span>
+            <h3 class="panel-title">${editingTask ? "Edit Task" : "Add Task"}</h3>
+            <p class="panel-sub">${editingTask ? `Update EST ${editingTask.est} / ${escapeHtml(editingTask.building)} / ${escapeHtml(editingTask.floor_name)}.` : "Create a new March task and assign it directly from the popup."}</p>
+          </div>
+          <button type="button" class="ghost-btn" onclick="resetTaskForm()">New task</button>
+        </div>
+
+        <form class="admin-form" onsubmit="saveTaskFromForm(event)">
+          <div class="form-grid">
+            <label class="field">
+              <span>EST</span>
+              <select name="est">
+                <option value="1" ${(editingTask?.est || 1) === 1 ? "selected" : ""}>EST 1</option>
+                <option value="2" ${(editingTask?.est || 1) === 2 ? "selected" : ""}>EST 2</option>
+              </select>
+            </label>
+
+            <label class="field field-wide">
+              <span>Building</span>
+              <input name="building" type="text" value="${escapeHtml(editingTask?.building || "")}" placeholder="Future - Engineering" required>
+            </label>
+
+            <label class="field field-wide">
+              <span>Unit / Floor</span>
+              <input name="floor_name" type="text" value="${escapeHtml(editingTask?.floor_name || "")}" placeholder="Ground / School name / 1st floor" required>
+            </label>
+
+            <label class="field">
+              <span>Assignee</span>
+              <select name="owner">
+                ${getAssigneeOptions(editingTask?.owner || "")}
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Status</span>
+              <select name="status">
+                ${stateOrder.map((status) => `<option value="${status}" ${(editingTask?.status || "todo") === status ? "selected" : ""}>${escapeHtml(stateLabel[status])}</option>`).join("")}
+              </select>
+            </label>
+
+            <label class="field field-wide">
+              <span>Note</span>
+              <textarea name="note" rows="3" placeholder="Optional note">${escapeHtml(editingTask?.note || "")}</textarea>
+            </label>
+
+            <label class="checkbox-field field-wide">
+              <input name="missing" type="checkbox" ${editingTask?.missing ? "checked" : ""}>
+              <span>Mark this unit as missing</span>
+            </label>
+          </div>
+
+          <div class="inline-actions">
+            <button type="submit" class="primary-btn">${editingTask ? "Save task" : "Add task"}</button>
+            <button type="button" class="ghost-btn" onclick="resetTaskForm()">Clear</button>
+          </div>
+        </form>
+      </article>
+
+      <article class="admin-card admin-list-card">
+        <div class="panel-head">
+          <div>
+            <span class="panel-kicker">Inventory</span>
+            <h3 class="panel-title">March Tasks</h3>
+            <p class="panel-sub">${tasks.length} tasks currently available across EST 1 and EST 2.</p>
+          </div>
+        </div>
+
+        <div class="admin-list task-list">
+          ${tasks.map((task) => `
+            <div class="admin-row">
+              <div class="admin-row-copy">
+                <strong>EST ${task.est} - ${escapeHtml(task.building)} - ${escapeHtml(task.floor_name)}</strong>
+                <span>${escapeHtml(getDisplayName(task.owner))} - ${escapeHtml(stateLabel[task.status])}${task.missing ? " - Missing" : ""}</span>
+              </div>
+              <div class="admin-row-actions">
+                <button type="button" class="ghost-btn" onclick="editTaskFromAdmin(${task.id})">Edit</button>
+                <button type="button" class="danger-btn" onclick="deleteTask(${task.id})">Delete</button>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </article>
+    </div>
+  `;
+}
+
 function renderAdminTools() {
   if (!managementRootEl) {
     return;
   }
 
   if (!isAdmin()) {
+    document.body.classList.remove("modal-open");
+    state.adminPanelOpen = false;
     managementRootEl.innerHTML = "";
     managementRootEl.classList.add("is-hidden");
     return;
   }
 
   managementRootEl.classList.remove("is-hidden");
+  document.body.classList.toggle("modal-open", state.adminPanelOpen);
 
   const editingMember = getMemberEditorValue();
   const editingTask = getTaskEditorValue();
   const members = getActiveMembers();
   const tasks = sortTasks(state.tasks);
+  const leads = members.filter((member) => member.role === "lead").length;
+  const memberCount = members.filter((member) => member.role === "member").length;
+  const activePanel = state.adminPanelTab === "tasks"
+    ? renderTaskAdminPanel(editingTask, tasks)
+    : renderMemberAdminPanel(editingMember, members);
+  const modalTitle = state.adminPanelTab === "tasks" ? "Task Workspace" : "People Workspace";
+  const modalCopy = state.adminPanelTab === "tasks"
+    ? "Add new March units, reassign work, and keep the task list tidy without crowding the dashboard."
+    : "Manage roles, reporting lines, and the active team from one focused admin popup.";
 
   managementRootEl.innerHTML = `
-    <section class="admin-tools">
-      <div class="admin-tools-head">
+    <section class="admin-launcher">
+      <div class="admin-launcher-copy">
         <div>
-          <span class="panel-kicker">Admin Controls</span>
-          <h2 class="panel-title">Manage Team And Tasks</h2>
-          <p class="panel-sub">Add, edit, delete, or reseed people and March 2026 tasks from one place.</p>
+          <span class="panel-kicker">Admin Workspace</span>
+          <h2 class="admin-launcher-title">Quick actions for people and tasks</h2>
+          <p class="panel-sub">Keep the board clean, then open a focused popup only when you need to manage the system.</p>
         </div>
+
+        <div class="admin-mini-stats" aria-label="Admin summary">
+          <div class="admin-mini-stat">
+            <strong>${leads}</strong>
+            <span>Leads</span>
+          </div>
+          <div class="admin-mini-stat">
+            <strong>${memberCount}</strong>
+            <span>Members</span>
+          </div>
+          <div class="admin-mini-stat">
+            <strong>${tasks.length}</strong>
+            <span>Tasks</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-launcher-actions">
+        <button type="button" class="primary-btn" onclick="openAdminPanel('people', true)">New person</button>
+        <button type="button" class="primary-btn" onclick="openAdminPanel('tasks', true)">New task</button>
+        <button type="button" class="ghost-btn" onclick="openAdminPanel('people')">Manage team</button>
+        <button type="button" class="ghost-btn" onclick="openAdminPanel('tasks')">Manage tasks</button>
         <button type="button" class="ghost-btn" onclick="seedDefaultData()">Load March 2026 Seed</button>
       </div>
-
-      <div class="admin-grid">
-        <article class="admin-card">
-          <div class="panel-head">
-            <div>
-              <span class="panel-kicker">People</span>
-              <h3 class="panel-title">Team Members</h3>
-            </div>
-            <button type="button" class="ghost-btn" onclick="resetMemberForm()">New person</button>
-          </div>
-
-          <form class="admin-form" onsubmit="saveMemberFromForm(event)">
-            <div class="form-grid">
-              <label class="field">
-                <span>Name</span>
-                <input name="display_name" type="text" value="${escapeHtml(editingMember?.display_name || "")}" placeholder="Mahmoud Feid" required>
-              </label>
-
-              <label class="field">
-                <span>Slug</span>
-                <input name="slug" type="text" value="${escapeHtml(editingMember?.slug || "")}" placeholder="mahmoud-feid" ${editingMember ? "readonly" : ""} required>
-              </label>
-
-              <label class="field">
-                <span>Role</span>
-                <select name="role">
-                  ${["admin", "lead", "member"].map((role) => `<option value="${role}" ${(editingMember?.role || "member") === role ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}
-                </select>
-              </label>
-
-              <label class="field">
-                <span>Manager</span>
-                <select name="manager_slug">
-                  ${getManagerOptions(editingMember?.manager_slug || "", editingMember?.slug || "")}
-                </select>
-              </label>
-
-              <label class="field">
-                <span>Accent</span>
-                <select name="accent_key">
-                  ${getAccentOptions(editingMember?.accent_key || "accent")}
-                </select>
-              </label>
-            </div>
-
-            <div class="inline-actions">
-              <button type="submit" class="primary-btn">${editingMember ? "Save member" : "Add member"}</button>
-              <button type="button" class="ghost-btn" onclick="resetMemberForm()">Clear</button>
-            </div>
-          </form>
-
-          <div class="admin-list">
-            ${members.map((member) => `
-              <div class="admin-row">
-                <div class="admin-row-copy">
-                  <strong>${escapeHtml(getDisplayName(member))}</strong>
-                  <span>${escapeHtml(member.role)}${member.manager_slug ? ` - reports to ${escapeHtml(getDisplayName(member.manager_slug))}` : ""}</span>
-                </div>
-                <div class="admin-row-actions">
-                  <button type="button" class="ghost-btn" onclick="editMember('${member.slug}')">Edit</button>
-                  <button type="button" class="danger-btn" onclick="deleteMember('${member.slug}')">Delete</button>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        </article>
-
-        <article class="admin-card">
-          <div class="panel-head">
-            <div>
-              <span class="panel-kicker">Tasks</span>
-              <h3 class="panel-title">March Inventory</h3>
-            </div>
-            <button type="button" class="ghost-btn" onclick="resetTaskForm()">New task</button>
-          </div>
-
-          <form class="admin-form" onsubmit="saveTaskFromForm(event)">
-            <div class="form-grid">
-              <label class="field">
-                <span>EST</span>
-                <select name="est">
-                  <option value="1" ${(editingTask?.est || 1) === 1 ? "selected" : ""}>EST 1</option>
-                  <option value="2" ${(editingTask?.est || 1) === 2 ? "selected" : ""}>EST 2</option>
-                </select>
-              </label>
-
-              <label class="field field-wide">
-                <span>Building</span>
-                <input name="building" type="text" value="${escapeHtml(editingTask?.building || "")}" placeholder="Future - Engineering" required>
-              </label>
-
-              <label class="field field-wide">
-                <span>Unit / Floor</span>
-                <input name="floor_name" type="text" value="${escapeHtml(editingTask?.floor_name || "")}" placeholder="Ground / School name / 1st floor" required>
-              </label>
-
-              <label class="field">
-                <span>Assignee</span>
-                <select name="owner">
-                  ${getAssigneeOptions(editingTask?.owner || "")}
-                </select>
-              </label>
-
-              <label class="field">
-                <span>Status</span>
-                <select name="status">
-                  ${stateOrder.map((status) => `<option value="${status}" ${(editingTask?.status || "todo") === status ? "selected" : ""}>${escapeHtml(stateLabel[status])}</option>`).join("")}
-                </select>
-              </label>
-
-              <label class="field field-wide">
-                <span>Note</span>
-                <textarea name="note" rows="3" placeholder="Optional note">${escapeHtml(editingTask?.note || "")}</textarea>
-              </label>
-
-              <label class="checkbox-field field-wide">
-                <input name="missing" type="checkbox" ${editingTask?.missing ? "checked" : ""}>
-                <span>Mark this unit as missing</span>
-              </label>
-            </div>
-
-            <div class="inline-actions">
-              <button type="submit" class="primary-btn">${editingTask ? "Save task" : "Add task"}</button>
-              <button type="button" class="ghost-btn" onclick="resetTaskForm()">Clear</button>
-            </div>
-          </form>
-
-          <div class="admin-list task-list">
-            ${tasks.map((task) => `
-              <div class="admin-row">
-                <div class="admin-row-copy">
-                  <strong>EST ${task.est} - ${escapeHtml(task.building)} - ${escapeHtml(task.floor_name)}</strong>
-                  <span>${escapeHtml(getDisplayName(task.owner))} - ${escapeHtml(stateLabel[task.status])}${task.missing ? " - Missing" : ""}</span>
-                </div>
-                <div class="admin-row-actions">
-                  <button type="button" class="ghost-btn" onclick="editTaskFromAdmin(${task.id})">Edit</button>
-                  <button type="button" class="danger-btn" onclick="deleteTask(${task.id})">Delete</button>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        </article>
-      </div>
     </section>
+
+    ${state.adminPanelOpen ? `
+      <div class="admin-modal-backdrop" onclick="handleAdminModalBackdrop(event)">
+        <section class="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+          <div class="admin-modal-shell">
+            <aside class="admin-modal-sidebar">
+              <span class="panel-kicker">Manage Team And Tasks</span>
+              <h2 class="admin-modal-title" id="admin-modal-title">${modalTitle}</h2>
+              <p class="panel-sub admin-modal-sub">${modalCopy}</p>
+
+              <div class="admin-modal-tabs" role="tablist" aria-label="Admin sections">
+                <button type="button" class="admin-tab-btn ${state.adminPanelTab === "people" ? "is-active" : ""}" onclick="switchAdminPanelTab('people')">People</button>
+                <button type="button" class="admin-tab-btn ${state.adminPanelTab === "tasks" ? "is-active" : ""}" onclick="switchAdminPanelTab('tasks')">Tasks</button>
+              </div>
+
+              <div class="admin-modal-note">
+                ${state.adminPanelTab === "people"
+                  ? (editingMember ? `Editing ${escapeHtml(getDisplayName(editingMember))}.` : "Ready to add a new team member.")
+                  : (editingTask ? `Editing EST ${editingTask.est} - ${escapeHtml(editingTask.building)} - ${escapeHtml(editingTask.floor_name)}.` : "Ready to add a new task.")}
+              </div>
+            </aside>
+
+            <div class="admin-modal-content">
+              <div class="admin-modal-topbar">
+                <div>
+                  <span class="panel-kicker">${state.adminPanelTab === "people" ? "Team Editor" : "Task Editor"}</span>
+                  <h3 class="panel-title">${state.adminPanelTab === "people" ? "People Management" : "Task Management"}</h3>
+                  <p class="panel-sub">${state.adminPanelTab === "people" ? "Edit roles, names, and reporting structure without pushing the board down." : "Create, edit, and review March assignments in one dedicated popup."}</p>
+                </div>
+                <button type="button" class="ghost-btn admin-close-btn" onclick="closeAdminPanel()">Close</button>
+              </div>
+
+              ${activePanel}
+            </div>
+          </div>
+        </section>
+      </div>
+    ` : ""}
   `;
 }
 
@@ -1530,12 +1701,15 @@ async function saveMemberFromForm(event) {
 
 function editMember(slug) {
   state.memberEditorSlug = slug;
+  state.adminPanelTab = "people";
+  state.adminPanelOpen = true;
   render();
-  managementRootEl?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function resetMemberForm() {
   state.memberEditorSlug = null;
+  state.adminPanelTab = "people";
+  state.adminPanelOpen = true;
   render();
 }
 
@@ -1594,12 +1768,15 @@ async function saveTaskFromForm(event) {
 
 function editTaskFromAdmin(taskId) {
   state.taskEditorId = Number(taskId);
+  state.adminPanelTab = "tasks";
+  state.adminPanelOpen = true;
   render();
-  managementRootEl?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function resetTaskForm() {
   state.taskEditorId = null;
+  state.adminPanelTab = "tasks";
+  state.adminPanelOpen = true;
   render();
 }
 
@@ -1744,6 +1921,14 @@ function bindFilterButtons() {
   });
 }
 
+function bindGlobalKeyboardShortcuts() {
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.adminPanelOpen) {
+      closeAdminPanel();
+    }
+  });
+}
+
 function scheduleRealtimeReload() {
   window.clearTimeout(state.reloadTimer);
   state.reloadTimer = window.setTimeout(() => {
@@ -1777,6 +1962,7 @@ function bindRealtime() {
 
 async function init() {
   bindFilterButtons();
+  bindGlobalKeyboardShortcuts();
   setDot("saving");
 
   try {
@@ -1791,6 +1977,10 @@ async function init() {
 }
 
 window.seedDefaultData = seedDefaultData;
+window.openAdminPanel = openAdminPanel;
+window.closeAdminPanel = closeAdminPanel;
+window.switchAdminPanelTab = switchAdminPanelTab;
+window.handleAdminModalBackdrop = handleAdminModalBackdrop;
 window.saveMemberFromForm = saveMemberFromForm;
 window.editMember = editMember;
 window.resetMemberForm = resetMemberForm;
