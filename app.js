@@ -12,8 +12,8 @@ const DEFAULT_TASK_SEED = buildSeedTasks();
 
 const BACKEND_PREVIEW = "preview";
 const BACKEND_SUPABASE = "supabase";
-const MEMBER_STORAGE_KEY = "task-est-preview-members-v3";
-const TASK_STORAGE_KEY = "task-est-preview-tasks-v3";
+const MEMBER_STORAGE_KEY = "task-est-preview-members-v4";
+const TASK_STORAGE_KEY = "task-est-preview-tasks-v4";
 const stateOrder = ["todo", "wip", "done"];
 
 const stateLabel = {
@@ -1068,7 +1068,7 @@ function render() {
 }
 
 function buildPreviewMessage() {
-  return "Preview mode is active. Changes are stored in this browser only until you run the latest supabase_setup.sql. Teams without detailed floor distribution were seeded with a balanced local split under each lead so you can review the hierarchy locally.";
+  return "Preview mode is active. Changes are stored in this browser only until you run the latest supabase_setup.sql. March 2026 hierarchy and assignments are seeded locally so everyone can review the latest distribution.";
 }
 
 async function detectBackend() {
