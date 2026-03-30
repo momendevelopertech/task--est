@@ -2,75 +2,20 @@ const SUPABASE_URL = "https://ijiniarsesgpaismytow.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqaW5pYXJzZXNncGFpc215dG93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3OTU2OTUsImV4cCI6MjA5MDM3MTY5NX0.C-IC3ppIycKi0NgUGEhkhfSIaieRT85iDh-0uuwR-Ko";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const PAGE = document.body.dataset.page || "admin";
-const PAGE_OWNER = PAGE === "admin" ? null : PAGE;
+const PAGE_MODE = document.body.dataset.view || "admin";
+const DEFAULT_VIEWER = document.body.dataset.user || "admin";
+const VIEWER_PARAM = new URLSearchParams(window.location.search).get("user");
+const REQUESTED_VIEWER = PAGE_MODE === "member" ? (VIEWER_PARAM || DEFAULT_VIEWER) : DEFAULT_VIEWER;
 
-const ownerMeta = {
-  sarah: { label: "Sarah", badgeClass: "wb-sarah", cardClass: "card-sarah", tone: "tone-sarah" },
-  hossam: { label: "Hossam", badgeClass: "wb-hossam", cardClass: "card-hossam", tone: "tone-hossam" }
-};
+const { pathLabel: DEFAULT_PATH_LABEL, members: DEFAULT_MEMBER_SEED, buildSeedTasks } = window.DASHBOARD_DEFAULTS;
+const DEFAULT_TASK_SEED = buildSeedTasks();
 
-const taskDefinitions = [
-  ["1__future-engineering__ground__sarah", 1, "Future - Engineering", "Ground", "sarah"],
-  ["1__future-engineering__1st-floor__sarah", 1, "Future - Engineering", "1st floor", "sarah"],
-  ["1__future-engineering__2nd-floor__hossam", 1, "Future - Engineering", "2nd floor", "hossam"],
-  ["1__future-engineering__3rd-floor__hossam", 1, "Future - Engineering", "3rd floor", "hossam"],
-  ["1__future-pharmacy__basement__sarah", 1, "Future - Pharmacy", "Basement", "sarah"],
-  ["1__future-pharmacy__ground__sarah", 1, "Future - Pharmacy", "Ground", "sarah"],
-  ["1__future-pharmacy__1st-floor__sarah", 1, "Future - Pharmacy", "1st floor", "sarah"],
-  ["1__future-pharmacy__2nd-floor__hossam", 1, "Future - Pharmacy", "2nd floor", "hossam"],
-  ["1__future-pharmacy__3rd-floor__hossam", 1, "Future - Pharmacy", "3rd floor", "hossam"],
-  ["1__future-political-science__basement__sarah", 1, "Future - Political Science", "Basement", "sarah"],
-  ["1__future-political-science__ground__sarah", 1, "Future - Political Science", "Ground", "sarah"],
-  ["1__future-political-science__1st-floor__hossam", 1, "Future - Political Science", "1st floor", "hossam"],
-  ["1__future-political-science__2nd-floor__hossam", 1, "Future - Political Science", "2nd floor", "hossam"],
-  ["1__future-business__basement__sarah", 1, "Future - Business", "Basement", "sarah"],
-  ["1__future-business__1st-floor__sarah", 1, "Future - Business", "1st floor", "sarah"],
-  ["1__future-business__2nd-floor__hossam", 1, "Future - Business", "2nd floor", "hossam"],
-  ["1__future-business__3rd-floor__hossam", 1, "Future - Business", "3rd floor", "hossam"],
-  ["1__future-dentistry__ground__sarah", 1, "Future - Dentistry", "Ground", "sarah"],
-  ["1__future-dentistry__1st-floor__sarah", 1, "Future - Dentistry", "1st floor", "sarah"],
-  ["1__future-dentistry__2nd-floor__hossam", 1, "Future - Dentistry", "2nd floor", "hossam"],
-  ["1__alex-engineering-b__1st-floor__sarah", 1, "Alex - Engineering B", "1st floor", "sarah"],
-  ["1__alex-engineering-b__2nd-floor__sarah", 1, "Alex - Engineering B", "2nd floor", "sarah"],
-  ["1__alex-engineering-b__3rd-floor__hossam", 1, "Alex - Engineering B", "3rd floor", "hossam"],
-  ["1__alex-engineering-b__4th-floor__hossam", 1, "Alex - Engineering B", "4th floor", "hossam"],
-  ["1__alex-pharmacy__2nd-floor__sarah", 1, "Alex - Pharmacy", "2nd floor", "sarah"],
-  ["1__alex-pharmacy__3rd-floor__sarah", 1, "Alex - Pharmacy", "3rd floor", "sarah"],
-  ["1__alex-pharmacy__4th-floor__hossam", 1, "Alex - Pharmacy", "4th floor", "hossam"],
-  ["1__alex-pharmacy__5th-floor__hossam", 1, "Alex - Pharmacy", "5th floor", "hossam"],
-  ["1__damietta-engineering__2nd-floor__sarah", 1, "Damietta - Engineering", "2nd floor", "sarah"],
-  ["1__damietta-engineering__3rd-floor__hossam", 1, "Damietta - Engineering", "3rd floor", "hossam"],
-  ["1__damietta-engineering__4th-floor__hossam", 1, "Damietta - Engineering", "4th floor", "hossam"],
-  ["2__alex-pharmacy__2nd-floor__sarah", 2, "Alex - Pharmacy", "2nd floor", "sarah"],
-  ["2__alex-pharmacy__3rd-floor__sarah", 2, "Alex - Pharmacy", "3rd floor", "sarah"],
-  ["2__alex-pharmacy__4th-floor__hossam", 2, "Alex - Pharmacy", "4th floor", "hossam"],
-  ["2__alex-pharmacy__5th-floor__hossam", 2, "Alex - Pharmacy", "5th floor", "hossam"],
-  ["2__damietta-medicine__1st-floor__hossam", 2, "Damietta - Medicine", "1st floor", "hossam"],
-  ["2__future-political-sc__ground__sarah", 2, "Future - Political Sc", "Ground", "sarah"],
-  ["2__future-political-sc__1st-floor__sarah", 2, "Future - Political Sc", "1st floor", "sarah"],
-  ["2__future-political-sc__2nd-floor__hossam", 2, "Future - Political Sc", "2nd floor", "hossam"],
-  ["2__future-political-sc__basement__hossam", 2, "Future - Political Sc", "Basement", "hossam"],
-  ["2__future-business__1st-floor__sarah", 2, "Future - Business", "1st floor", "sarah"],
-  ["2__future-business__2nd-floor__sarah", 2, "Future - Business", "2nd floor", "sarah"],
-  ["2__future-business__3rd-floor__hossam", 2, "Future - Business", "3rd floor", "hossam"],
-  ["2__future-business__basement__hossam", 2, "Future - Business", "Basement", "hossam"]
-];
-
-const tasks = taskDefinitions.map(([taskKey, est, building, floor, owner], idx) => ({
-  taskKey,
-  est,
-  building,
-  floor,
-  owner,
-  idx,
-  zeroBasedId: idx,
-  oneBasedId: idx + 1
-}));
-
-const EXPECTED_TASK_COUNT = tasks.length;
-const knownTaskKeys = new Set(tasks.map((task) => task.taskKey));
+const BACKEND_PREVIEW = "preview";
+const BACKEND_SUPABASE = "supabase";
+const MEMBER_STORAGE_KEY = "task-est-preview-members-v3";
+const TASK_STORAGE_KEY = "task-est-preview-tasks-v3";
 const stateOrder = ["todo", "wip", "done"];
+
 const stateLabel = {
   todo: "To Do",
   wip: "In Progress",
@@ -83,30 +28,61 @@ const stateClass = {
   done: "s-done"
 };
 
-const taskRecordsByKey = {};
-const taskRecordsById = {};
-const noteDraftsByKey = {};
-const noteUiStateByKey = {};
-const availableTaskKeys = new Set();
-const dirtyNoteKeys = new Set();
-const noteEditorOpenKeys = new Set();
+const roleMeta = {
+  admin: { label: "Admin", eyebrow: "Admin View" },
+  lead: { label: "Lead", eyebrow: "Lead View" },
+  member: { label: "Member", eyebrow: "Member View" }
+};
 
-let activeStatus = null;
-let idMode = null;
-let warningMessage = "";
-let taskKeyColumnAvailable = false;
-let noteColumnAvailable = false;
-let hasLoadedStatuses = false;
+const accentPalette = {
+  accent: { solid: "#0f766e", strong: "#115e59", soft: "rgba(15, 118, 110, 0.12)" },
+  momen: { solid: "#0f9f6e", strong: "#0b7d56", soft: "rgba(15, 159, 110, 0.14)" },
+  sarah: { solid: "#d9485f", strong: "#be314d", soft: "rgba(217, 72, 95, 0.12)" },
+  hossam: { solid: "#2563eb", strong: "#1d4ed8", soft: "rgba(37, 99, 235, 0.12)" },
+  ayman: { solid: "#d97706", strong: "#b45309", soft: "rgba(217, 119, 6, 0.14)" },
+  amany: { solid: "#0891b2", strong: "#0e7490", soft: "rgba(8, 145, 178, 0.13)" },
+  asmaa: { solid: "#dc2626", strong: "#b91c1c", soft: "rgba(220, 38, 38, 0.13)" },
+  omar: { solid: "#4f46e5", strong: "#4338ca", soft: "rgba(79, 70, 229, 0.13)" },
+  hosary: { solid: "#7c3aed", strong: "#6d28d9", soft: "rgba(124, 58, 237, 0.13)" },
+  mahmoud: { solid: "#0f766e", strong: "#0f5b51", soft: "rgba(15, 118, 110, 0.12)" },
+  "momen-abdelshafy": { solid: "#475569", strong: "#334155", soft: "rgba(71, 85, 105, 0.13)" }
+};
 
+const state = {
+  backend: "loading",
+  missingSupported: true,
+  currentUserSlug: REQUESTED_VIEWER,
+  currentUser: null,
+  members: [],
+  tasks: [],
+  activeStatus: null,
+  loaded: false,
+  warningMessage: "",
+  modeMessage: "",
+  memberEditorSlug: null,
+  taskEditorId: null,
+  noteDraftsById: {},
+  noteUiStateById: {},
+  noteEditorOpenIds: new Set(),
+  syncChannels: [],
+  isReloading: false
+};
+
+const eyebrowEl = document.getElementById("page-eyebrow");
+const titleEl = document.getElementById("page-title");
+const subtitleEl = document.getElementById("page-subtitle");
+const navEl = document.getElementById("page-nav");
+const pathEl = document.getElementById("page-path");
 const statsEl = document.getElementById("stats");
 const boardEl = document.getElementById("board");
 const dotEl = document.getElementById("dot");
 const syncLabelEl = document.getElementById("sync-label");
 const warningEl = document.getElementById("db-warning");
+const managementRootEl = document.getElementById("management-root");
 const filterButtons = Array.from(document.querySelectorAll("[data-status-filter]"));
 
 function escapeHtml(value) {
-  return String(value)
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -118,213 +94,526 @@ function hasOwn(map, key) {
   return Object.prototype.hasOwnProperty.call(map, key);
 }
 
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 function normalizeNoteValue(value) {
   return typeof value === "string" ? value.replace(/\r\n/g, "\n") : "";
 }
 
-function setDot(state) {
-  dotEl.className = "dot " + (state === "ok" ? "green" : state === "saving" ? "orange" : "red");
+function cloneMember(member) {
+  return {
+    slug: member.slug,
+    display_name: member.display_name || member.name || "",
+    role: member.role || "member",
+    manager_slug: member.manager_slug || null,
+    accent_key: member.accent_key || "accent",
+    sort_order: Number.isFinite(Number(member.sort_order)) ? Number(member.sort_order) : 0,
+    active: member.active !== false
+  };
+}
+
+function cloneTask(task) {
+  return {
+    id: Number(task.id),
+    est: Number(task.est) || 1,
+    building: String(task.building || "").trim(),
+    floor_name: String(task.floor_name || "").trim(),
+    owner: String(task.owner || "").trim(),
+    status: stateOrder.includes(task.status) ? task.status : "todo",
+    note: normalizeNoteValue(task.note),
+    missing: Boolean(task.missing),
+    task_key: String(task.task_key || "")
+  };
+}
+
+function getSeedMembers() {
+  return DEFAULT_MEMBER_SEED.map((member) => cloneMember(member));
+}
+
+function getSeedTasks() {
+  return DEFAULT_TASK_SEED.map((task) => cloneTask(task));
+}
+
+function readLocalJson(key, fallback) {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return fallback;
+    }
+
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalJson(key, value) {
+  window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function ensurePreviewSeed() {
+  const storedMembers = readLocalJson(MEMBER_STORAGE_KEY, []);
+  const storedTasks = readLocalJson(TASK_STORAGE_KEY, []);
+
+  if (!storedMembers.length) {
+    writeLocalJson(MEMBER_STORAGE_KEY, getSeedMembers());
+  }
+
+  if (!storedTasks.length) {
+    writeLocalJson(TASK_STORAGE_KEY, getSeedTasks());
+  }
+}
+
+function setDot(status) {
+  dotEl.className = "dot " + (status === "ok" ? "green" : status === "saving" ? "orange" : "red");
   syncLabelEl.textContent =
-    state === "ok" ? "Synced" :
-    state === "saving" ? "Saving..." :
+    status === "ok" ? "Synced" :
+    status === "saving" ? "Saving..." :
     "Connection issue";
 }
 
 function renderWarning() {
-  if (!warningEl) {
-    return;
-  }
-
-  warningEl.textContent = warningMessage;
-  warningEl.classList.toggle("is-hidden", !warningMessage);
+  const message = [state.modeMessage, state.warningMessage].filter(Boolean).join(" ");
+  warningEl.textContent = message;
+  warningEl.classList.toggle("is-hidden", !message);
 }
 
 function setWarning(message) {
-  warningMessage = message;
+  state.warningMessage = message;
   renderWarning();
 }
 
 function clearWarning() {
-  setWarning("");
+  state.warningMessage = "";
+  renderWarning();
+}
+
+function setModeMessage(message) {
+  state.modeMessage = message;
+  renderWarning();
 }
 
 function clearTransientWarning() {
   if (
-    warningMessage.startsWith("Save failed for") ||
-    warningMessage.startsWith("Note save failed for") ||
-    warningMessage.startsWith("Please wait")
+    state.warningMessage.startsWith("Save failed") ||
+    state.warningMessage.startsWith("Note save failed") ||
+    state.warningMessage.startsWith("Please wait") ||
+    state.warningMessage.startsWith("Could not")
   ) {
     clearWarning();
   }
 }
 
-function clearTaskData() {
-  availableTaskKeys.clear();
-  dirtyNoteKeys.clear();
+function getAccent(key) {
+  return accentPalette[key] || accentPalette.accent;
+}
 
-  [
-    taskRecordsByKey,
-    taskRecordsById,
-    noteDraftsByKey,
-    noteUiStateByKey
-  ].forEach((map) => {
-    Object.keys(map).forEach((key) => {
-      delete map[key];
-    });
+function getMemberBySlug(slug) {
+  return state.members.find((member) => member.slug === slug) || null;
+}
+
+function getDisplayName(memberOrSlug) {
+  const member = typeof memberOrSlug === "string" ? getMemberBySlug(memberOrSlug) : memberOrSlug;
+  return member?.display_name || member?.name || "Unknown";
+}
+
+function getShortName(memberOrSlug) {
+  const displayName = getDisplayName(memberOrSlug);
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0] || displayName;
+  const duplicateFirstNames = getActiveMembers().filter((member) => {
+    const memberFirst = getDisplayName(member).trim().split(/\s+/)[0] || "";
+    return memberFirst === firstName;
+  });
+
+  if (duplicateFirstNames.length > 1 && parts.length > 1) {
+    return `${firstName} ${parts[1]}`;
+  }
+
+  return firstName || displayName;
+}
+
+function getActiveMembers() {
+  return state.members.filter((member) => member.active !== false);
+}
+
+function sortMembers(members) {
+  const roleOrder = { admin: 0, lead: 1, member: 2 };
+
+  return [...members].sort((left, right) => {
+    const sortDelta = (left.sort_order ?? 0) - (right.sort_order ?? 0);
+    if (sortDelta !== 0) {
+      return sortDelta;
+    }
+
+    const roleDelta = (roleOrder[left.role] ?? 9) - (roleOrder[right.role] ?? 9);
+    if (roleDelta !== 0) {
+      return roleDelta;
+    }
+
+    return getDisplayName(left).localeCompare(getDisplayName(right));
   });
 }
 
-function setMapField(map, key, field, value) {
-  const existing = map[key];
-
-  if (value === undefined) {
-    if (!existing) {
-      return;
+function sortTasks(tasks) {
+  return [...tasks].sort((left, right) => {
+    if (left.est !== right.est) {
+      return left.est - right.est;
     }
 
-    const next = { ...existing };
-    delete next[field];
-
-    if (Object.keys(next).length) {
-      map[key] = next;
-    } else {
-      delete map[key];
+    const buildingDelta = left.building.localeCompare(right.building);
+    if (buildingDelta !== 0) {
+      return buildingDelta;
     }
 
-    return;
-  }
+    const unitDelta = left.floor_name.localeCompare(right.floor_name);
+    if (unitDelta !== 0) {
+      return unitDelta;
+    }
 
-  map[key] = { ...(existing || {}), [field]: value };
+    return left.id - right.id;
+  });
 }
 
-function detectIdMode(rows) {
-  const ids = new Set(
-    rows
-      .map((row) => row.id)
-      .filter((value) => Number.isInteger(value))
-  );
-
-  if (!ids.size) {
-    return null;
-  }
-
-  const zeroBasedSignals = Number(ids.has(0)) + Number(ids.has(EXPECTED_TASK_COUNT - 1));
-  const oneBasedSignals = Number(ids.has(1)) + Number(ids.has(EXPECTED_TASK_COUNT));
-
-  if (oneBasedSignals > zeroBasedSignals) {
-    return "one-based";
-  }
-
-  if (zeroBasedSignals > oneBasedSignals) {
-    return "zero-based";
-  }
-
-  if (ids.has(1) && !ids.has(0)) {
-    return "one-based";
-  }
-
-  if (ids.has(0)) {
-    return "zero-based";
-  }
-
-  return null;
+function getChildrenOf(slug) {
+  return state.members.filter((member) => member.manager_slug === slug);
 }
 
-function inferIdModeFromRowId(rowId) {
-  if (rowId === 0 || rowId === EXPECTED_TASK_COUNT - 1) {
-    idMode = "zero-based";
-  } else if (rowId === 1 || rowId === EXPECTED_TASK_COUNT) {
-    idMode = "one-based";
+function getDescendantSlugs(slug) {
+  const descendants = [];
+  const stack = getChildrenOf(slug).map((member) => member.slug);
+
+  while (stack.length) {
+    const current = stack.pop();
+    descendants.push(current);
+    getChildrenOf(current).forEach((member) => {
+      stack.push(member.slug);
+    });
   }
+
+  return descendants;
 }
 
-function getLegacyDisplayId(task) {
-  return idMode === "one-based" ? task.oneBasedId : task.zeroBasedId;
+function isAdmin() {
+  return state.currentUser?.role === "admin";
 }
 
-function getLegacyWriteIds(task) {
-  if (idMode === "one-based") {
-    return [task.oneBasedId];
+function isLead() {
+  return state.currentUser?.role === "lead";
+}
+
+function getVisibleMemberSlugs() {
+  if (!state.currentUser) {
+    return new Set();
   }
 
-  if (idMode === "zero-based") {
-    return [task.zeroBasedId];
+  if (state.currentUser.role === "admin") {
+    return new Set(getActiveMembers().map((member) => member.slug));
   }
 
-  return [task.zeroBasedId, task.oneBasedId];
+  const visible = new Set([state.currentUser.slug]);
+  getDescendantSlugs(state.currentUser.slug).forEach((slug) => visible.add(slug));
+  return visible;
+}
+
+function getScopedMembers() {
+  const visible = getVisibleMemberSlugs();
+  return getActiveMembers().filter((member) => visible.has(member.slug) && member.slug !== state.currentUser?.slug);
 }
 
 function getScopedTasks() {
-  return PAGE_OWNER ? tasks.filter((task) => task.owner === PAGE_OWNER) : tasks;
+  const visible = getVisibleMemberSlugs();
+  return state.tasks.filter((task) => visible.has(task.owner));
 }
 
-function getStoredTaskRecord(task) {
-  if (availableTaskKeys.has(task.taskKey) && hasOwn(taskRecordsByKey, task.taskKey)) {
-    return taskRecordsByKey[task.taskKey];
+function getVisibleTasks() {
+  const tasks = getScopedTasks();
+
+  return state.activeStatus
+    ? tasks.filter((task) => task.status === state.activeStatus)
+    : tasks;
+}
+
+function resolveCurrentUser() {
+  const directMatch = getMemberBySlug(state.currentUserSlug);
+  if (directMatch) {
+    return directMatch;
   }
 
-  const legacyId = getLegacyDisplayId(task);
-  if (hasOwn(taskRecordsById, legacyId)) {
-    return taskRecordsById[legacyId];
+  if (PAGE_MODE === "admin") {
+    return cloneMember({ slug: "admin", display_name: "Admin", role: "admin", accent_key: "accent", manager_slug: null, sort_order: -1, active: true });
   }
 
-  return null;
+  return getActiveMembers().find((member) => member.role !== "admin") || cloneMember({
+    slug: state.currentUserSlug,
+    display_name: state.currentUserSlug,
+    role: "member",
+    accent_key: "accent",
+    manager_slug: null,
+    sort_order: 999,
+    active: true
+  });
 }
 
-function getTaskState(task) {
-  const record = getStoredTaskRecord(task);
-  return typeof record?.status === "string" ? record.status : "todo";
+function applyTheme() {
+  const accent = getAccent(state.currentUser?.accent_key || "accent");
+  document.body.style.setProperty("--accent", accent.solid);
+  document.body.style.setProperty("--accent-soft", accent.soft);
+  document.body.style.setProperty("--accent-strong", accent.strong);
 }
 
-function getPersistedTaskNote(task) {
-  const record = getStoredTaskRecord(task);
-  return normalizeNoteValue(record?.note);
-}
+function getPageCopy() {
+  const user = state.currentUser;
+  const role = roleMeta[user?.role] || roleMeta.member;
 
-function getDisplayedTaskNote(task) {
-  if (hasOwn(noteDraftsByKey, task.taskKey)) {
-    return noteDraftsByKey[task.taskKey];
+  if (!user) {
+    return {
+      eyebrow: "Loading",
+      title: "Conversion Dashboard",
+      subtitle: "Loading dashboard data..."
+    };
   }
 
-  return getPersistedTaskNote(task);
+  if (user.role === "admin") {
+    return {
+      eyebrow: role.eyebrow,
+      title: "Hierarchy Dashboard",
+      subtitle: "See every lead and member, manage people and tasks, and track what is done across March 2026."
+    };
+  }
+
+  if (user.role === "lead") {
+    return {
+      eyebrow: role.eyebrow,
+      title: `${getDisplayName(user)} Dashboard`,
+      subtitle: "This page shows your own work plus everyone assigned under your team."
+    };
+  }
+
+  return {
+    eyebrow: role.eyebrow,
+    title: `${getDisplayName(user)} Dashboard`,
+    subtitle: "This page only shows tasks assigned directly to you."
+  };
+}
+
+function renderPageHeader() {
+  const copy = getPageCopy();
+
+  eyebrowEl.textContent = copy.eyebrow;
+  titleEl.textContent = copy.title;
+  subtitleEl.textContent = copy.subtitle;
+  pathEl.textContent = DEFAULT_PATH_LABEL;
+}
+
+function renderPageNav() {
+  const links = [
+    `<a class="page-link ${PAGE_MODE === "admin" ? "is-active" : ""}" href="/">Admin</a>`
+  ];
+
+  getActiveMembers()
+    .filter((member) => member.role !== "admin")
+    .forEach((member) => {
+      const active = PAGE_MODE === "member" && member.slug === state.currentUser?.slug;
+      links.push(
+        `<a class="page-link ${active ? "is-active" : ""}" href="/member/?user=${encodeURIComponent(member.slug)}">${escapeHtml(getShortName(member))}</a>`
+      );
+    });
+
+  navEl.innerHTML = links.join("");
+}
+
+function renderStats() {
+  const scopedTasks = getScopedTasks();
+  const totals = { todo: 0, wip: 0, done: 0 };
+
+  scopedTasks.forEach((task) => {
+    totals[task.status] += 1;
+  });
+
+  let cards = [];
+
+  if (isAdmin()) {
+    const leads = getActiveMembers().filter((member) => member.role === "lead").length;
+    const members = getActiveMembers().filter((member) => member.role === "member").length;
+
+    cards = [
+      { value: scopedTasks.length, label: "Visible Tasks", tone: "tone-accent" },
+      { value: leads, label: "Team Leads", tone: "tone-accent" },
+      { value: members, label: "Members", tone: "tone-accent" },
+      { value: totals.todo, label: "To Do", tone: "tone-todo" },
+      { value: totals.wip, label: "In Progress", tone: "tone-wip" },
+      { value: totals.done, label: "Done", tone: "tone-done" }
+    ];
+  } else if (isLead()) {
+    cards = [
+      { value: scopedTasks.length, label: "Team Tasks", tone: "tone-accent" },
+      { value: getScopedMembers().length, label: "People In Scope", tone: "tone-accent" },
+      { value: totals.todo, label: "To Do", tone: "tone-todo" },
+      { value: totals.wip, label: "In Progress", tone: "tone-wip" },
+      { value: totals.done, label: "Done", tone: "tone-done" }
+    ];
+  } else {
+    cards = [
+      { value: scopedTasks.length, label: "Assigned Tasks", tone: "tone-accent" },
+      { value: totals.todo, label: "To Do", tone: "tone-todo" },
+      { value: totals.wip, label: "In Progress", tone: "tone-wip" },
+      { value: totals.done, label: "Done", tone: "tone-done" }
+    ];
+  }
+
+  statsEl.innerHTML = cards.map((card) => `
+    <div class="stat-card ${card.tone}">
+      <strong>${card.value}</strong>
+      <span>${escapeHtml(card.label)}</span>
+    </div>
+  `).join("");
+}
+
+function updateFilterButtons() {
+  filterButtons.forEach((button) => {
+    button.classList.toggle("is-active", state.activeStatus === button.dataset.statusFilter);
+  });
+}
+
+function toggleStatusFilter(status) {
+  state.activeStatus = state.activeStatus === status ? null : status;
+  render();
+}
+
+function buildTaskGroups(tasksToRender) {
+  const groups = new Map();
+
+  tasksToRender.forEach((task) => {
+    const key = `${task.est}|||${task.building}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        est: task.est,
+        building: task.building,
+        owners: new Set(),
+        items: [],
+        totals: { todo: 0, wip: 0, done: 0 },
+        noteCount: 0,
+        missingCount: 0
+      });
+    }
+
+    const group = groups.get(key);
+    group.items.push(task);
+    group.owners.add(task.owner);
+    group.totals[task.status] += 1;
+    if (taskHasNote(task)) {
+      group.noteCount += 1;
+    }
+    if (task.missing) {
+      group.missingCount += 1;
+    }
+  });
+
+  return Array.from(groups.values()).sort((left, right) => left.building.localeCompare(right.building));
+}
+
+function renderMemberBadge(slug) {
+  const member = getMemberBySlug(slug);
+  const accent = getAccent(member?.accent_key);
+  return `
+    <span class="who-badge who-badge-dynamic" style="--badge-bg:${accent.soft}; --badge-fg:${accent.solid}">
+      ${escapeHtml(getShortName(member))}
+    </span>
+  `;
+}
+
+function getGroupAccent(group) {
+  const owners = Array.from(group.owners);
+  if (owners.length === 1) {
+    const member = getMemberBySlug(owners[0]);
+    return getAccent(member?.accent_key);
+  }
+
+  return getAccent(state.currentUser?.accent_key || "accent");
+}
+
+function getGroupStateChipsHtml(group) {
+  return stateOrder
+    .filter((status) => group.totals[status] > 0)
+    .map((status) => `<span class="summary-chip is-${status}">${group.totals[status]} ${escapeHtml(stateLabel[status])}</span>`)
+    .join("");
+}
+
+function getGroupHighlightsHtml(group) {
+  const itemLabel = `${group.items.length} ${group.items.length === 1 ? "Item" : "Items"}`;
+  const noteLabel = group.noteCount === 1 ? "1 Note" : `${group.noteCount} Notes`;
+  const missingLabel = group.missingCount === 1 ? "1 Missing" : `${group.missingCount} Missing`;
+
+  return `
+    <div class="building-highlights">
+      <span class="summary-chip">${itemLabel}</span>
+      ${group.noteCount ? `<span class="summary-chip">${noteLabel}</span>` : ""}
+      ${group.missingCount ? `<span class="summary-chip is-missing">${missingLabel}</span>` : ""}
+      ${getGroupStateChipsHtml(group)}
+    </div>
+  `;
+}
+
+function getGroupMetaHtml(group) {
+  const orderedOwners = Array.from(group.owners)
+    .sort((left, right) => getDisplayName(left).localeCompare(getDisplayName(right)));
+
+  if (state.currentUser?.role === "member") {
+    return `<div class="building-meta">${renderMemberBadge(state.currentUser.slug)}</div>`;
+  }
+
+  return `
+    <div class="building-meta">
+      <div class="owner-stack">
+        ${orderedOwners.map((slug) => renderMemberBadge(slug)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function getTaskById(taskId) {
+  return state.tasks.find((task) => task.id === Number(taskId)) || null;
 }
 
 function getTaskNoteUiState(task) {
-  return noteUiStateByKey[task.taskKey] || "idle";
+  return state.noteUiStateById[task.id] || "idle";
+}
+
+function getDisplayedTaskNote(task) {
+  return hasOwn(state.noteDraftsById, task.id) ? state.noteDraftsById[task.id] : normalizeNoteValue(task.note);
 }
 
 function isTaskNoteDirty(task) {
-  return dirtyNoteKeys.has(task.taskKey);
+  return getDisplayedTaskNote(task) !== normalizeNoteValue(task.note);
 }
 
 function taskHasNote(task) {
-  return Boolean(getDisplayedTaskNote(task).trim() || getPersistedTaskNote(task).trim());
+  return Boolean(getDisplayedTaskNote(task).trim() || normalizeNoteValue(task.note).trim());
 }
 
 function getTaskNotePreview(task) {
-  return (getDisplayedTaskNote(task).trim() || getPersistedTaskNote(task).trim()).replace(/\s+/g, " ");
+  return (getDisplayedTaskNote(task).trim() || normalizeNoteValue(task.note).trim()).replace(/\s+/g, " ");
 }
 
 function isTaskNoteEditorOpen(task) {
   const uiState = getTaskNoteUiState(task);
-  return noteEditorOpenKeys.has(task.taskKey) || dirtyNoteKeys.has(task.taskKey) || uiState === "saving" || uiState === "error";
+  return state.noteEditorOpenIds.has(task.id) || uiState === "saving" || uiState === "error" || isTaskNoteDirty(task);
 }
 
 function canToggleTaskNote(task) {
-  if (!hasLoadedStatuses || !noteColumnAvailable) {
-    return false;
-  }
-
-  return getTaskNoteUiState(task) !== "saving" && !isTaskNoteDirty(task);
+  return state.loaded && getTaskNoteUiState(task) !== "saving";
 }
 
 function getTaskNoteToggleLabel(task) {
-  if (!hasLoadedStatuses) {
+  if (!state.loaded) {
     return "Syncing";
-  }
-
-  if (!noteColumnAvailable) {
-    return "Notes off";
   }
 
   if (getTaskNoteUiState(task) === "saving") {
@@ -342,216 +631,12 @@ function getTaskNoteToggleLabel(task) {
   return taskHasNote(task) ? "Edit note" : "Add note";
 }
 
-function applyRowData(row) {
-  if (!row) {
-    return;
-  }
-
-  if (typeof row.task_key === "string" && knownTaskKeys.has(row.task_key)) {
-    availableTaskKeys.add(row.task_key);
-
-    if (typeof row.status === "string") {
-      setMapField(taskRecordsByKey, row.task_key, "status", row.status);
-    }
-
-    if (typeof row.note === "string") {
-      const normalizedNote = normalizeNoteValue(row.note);
-      setMapField(taskRecordsByKey, row.task_key, "note", normalizedNote);
-
-      if (!dirtyNoteKeys.has(row.task_key)) {
-        noteDraftsByKey[row.task_key] = normalizedNote;
-        if (noteUiStateByKey[row.task_key] !== "saved") {
-          noteUiStateByKey[row.task_key] = "idle";
-        }
-      }
-    }
-  }
-
-  if (Number.isInteger(row.id)) {
-    if (typeof row.status === "string") {
-      setMapField(taskRecordsById, row.id, "status", row.status);
-    }
-
-    if (typeof row.note === "string") {
-      setMapField(taskRecordsById, row.id, "note", normalizeNoteValue(row.note));
-    }
-  }
-}
-
-function captureTaskStatusSnapshot(task) {
-  const legacyId = getLegacyDisplayId(task);
-
-  return {
-    taskKey: task.taskKey,
-    hasConfirmedTaskKey: availableTaskKeys.has(task.taskKey),
-    keyStatus: taskRecordsByKey[task.taskKey]?.status,
-    legacyId,
-    legacyStatus: taskRecordsById[legacyId]?.status
-  };
-}
-
-function restoreTaskStatusSnapshot(snapshot) {
-  if (snapshot.hasConfirmedTaskKey) {
-    availableTaskKeys.add(snapshot.taskKey);
-    setMapField(taskRecordsByKey, snapshot.taskKey, "status", snapshot.keyStatus);
-  } else {
-    availableTaskKeys.delete(snapshot.taskKey);
-    setMapField(taskRecordsByKey, snapshot.taskKey, "status", undefined);
-  }
-
-  setMapField(taskRecordsById, snapshot.legacyId, "status", snapshot.legacyStatus);
-}
-
-function setOptimisticTaskStatus(task, nextState) {
-  if (availableTaskKeys.has(task.taskKey)) {
-    setMapField(taskRecordsByKey, task.taskKey, "status", nextState);
-  }
-
-  setMapField(taskRecordsById, getLegacyDisplayId(task), "status", nextState);
-}
-
-function getVisibleTasks() {
-  const scopedTasks = getScopedTasks();
-  return activeStatus
-    ? scopedTasks.filter((task) => getTaskState(task) === activeStatus)
-    : scopedTasks;
-}
-
-function buildTaskGroups(tasksToRender) {
-  const groups = new Map();
-
-  tasksToRender.forEach((task) => {
-    const key = `${task.est}|||${task.building}`;
-    if (!groups.has(key)) {
-      groups.set(key, {
-        est: task.est,
-        building: task.building,
-        owners: new Set(),
-        items: [],
-        totals: { todo: 0, wip: 0, done: 0 },
-        noteCount: 0
-      });
-    }
-
-    const group = groups.get(key);
-    group.owners.add(task.owner);
-    group.items.push(task);
-    group.totals[getTaskState(task)] += 1;
-    if (taskHasNote(task)) {
-      group.noteCount += 1;
-    }
-  });
-
-  return Array.from(groups.values());
-}
-
-function renderStats() {
-  const scopedTasks = getScopedTasks();
-  const totals = { todo: 0, wip: 0, done: 0 };
-
-  scopedTasks.forEach((task) => {
-    totals[getTaskState(task)] += 1;
-  });
-
-  const cards = PAGE_OWNER
-    ? [
-        { value: scopedTasks.length, label: `${ownerMeta[PAGE_OWNER].label} Tasks`, tone: ownerMeta[PAGE_OWNER].tone },
-        { value: totals.todo, label: "To Do", tone: "tone-todo" },
-        { value: totals.wip, label: "In Progress", tone: "tone-wip" },
-        { value: totals.done, label: "Done", tone: "tone-done" }
-      ]
-    : [
-        { value: tasks.filter((task) => task.owner === "sarah").length, label: "Sarah Tasks", tone: "tone-sarah" },
-        { value: tasks.filter((task) => task.owner === "hossam").length, label: "Hossam Tasks", tone: "tone-hossam" },
-        { value: totals.todo, label: "To Do", tone: "tone-todo" },
-        { value: totals.wip, label: "In Progress", tone: "tone-wip" },
-        { value: totals.done, label: "Done", tone: "tone-done" }
-      ];
-
-  statsEl.innerHTML = cards.map((card) => `
-    <div class="stat-card ${card.tone}">
-      <strong>${card.value}</strong>
-      <span>${escapeHtml(card.label)}</span>
-    </div>
-  `).join("");
-}
-
-function updateFilterButtons() {
-  filterButtons.forEach((button) => {
-    button.classList.toggle("is-active", activeStatus === button.dataset.statusFilter);
-  });
-}
-
-function toggleStatusFilter(status) {
-  activeStatus = activeStatus === status ? null : status;
-  render();
-}
-
-function getGroupCardClass(group) {
-  const owners = Array.from(group.owners);
-  if (owners.length === 1) {
-    return ownerMeta[owners[0]].cardClass;
-  }
-
-  return "card-shared";
-}
-
-function getGroupStateChipsHtml(group) {
-  return stateOrder
-    .filter((state) => group.totals[state] > 0)
-    .map((state) => `
-      <span class="summary-chip is-${state}">${group.totals[state]} ${escapeHtml(stateLabel[state])}</span>
-    `)
-    .join("");
-}
-
-function getGroupHighlightsHtml(group) {
-  const floorLabel = `${group.items.length} ${group.items.length === 1 ? "Floor" : "Floors"}`;
-  const noteLabel = group.noteCount === 1 ? "1 Note" : `${group.noteCount} Notes`;
-
-  return `
-    <div class="building-highlights">
-      <span class="summary-chip">${floorLabel}</span>
-      ${group.noteCount ? `<span class="summary-chip">${noteLabel}</span>` : ""}
-      ${getGroupStateChipsHtml(group)}
-    </div>
-  `;
-}
-
-function getGroupMetaHtml(group) {
-  const orderedOwners = ["sarah", "hossam"].filter((ownerKey) => group.owners.has(ownerKey));
-
-  if (PAGE_OWNER) {
-    const owner = ownerMeta[PAGE_OWNER];
-    return `
-      <div class="building-meta">
-        <span class="who-badge ${owner.badgeClass}">${owner.label}</span>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="building-meta">
-      <div class="owner-stack">
-        ${orderedOwners.map((ownerKey) => `
-          <span class="who-badge ${ownerMeta[ownerKey].badgeClass}">${ownerMeta[ownerKey].label}</span>
-        `).join("")}
-      </div>
-    </div>
-  `;
-}
-
 function getTaskNoteStatusInfo(task) {
-  if (!hasLoadedStatuses) {
+  if (!state.loaded) {
     return { label: "Waiting for sync...", className: "note-status is-muted" };
   }
 
-  if (!noteColumnAvailable) {
-    return { label: "Run SQL migration to enable notes", className: "note-status is-muted" };
-  }
-
   const uiState = getTaskNoteUiState(task);
-
   if (uiState === "saving") {
     return { label: "Saving...", className: "note-status is-saving" };
   }
@@ -568,17 +653,13 @@ function getTaskNoteStatusInfo(task) {
     return { label: "Saved", className: "note-status is-saved" };
   }
 
-  return getPersistedTaskNote(task)
+  return task.note
     ? { label: "Saved on board", className: "note-status is-idle" }
     : { label: "Optional", className: "note-status is-idle" };
 }
 
 function canSaveTaskNote(task) {
-  if (!hasLoadedStatuses || !noteColumnAvailable) {
-    return false;
-  }
-
-  return isTaskNoteDirty(task) || getTaskNoteUiState(task) === "error";
+  return state.loaded && (isTaskNoteDirty(task) || getTaskNoteUiState(task) === "error");
 }
 
 function getTaskNoteButtonLabel(task) {
@@ -586,19 +667,31 @@ function getTaskNoteButtonLabel(task) {
 }
 
 function getTaskNotePlaceholder() {
-  if (!hasLoadedStatuses) {
-    return "Waiting for the first sync...";
+  return state.loaded ? "Add an optional note for this item." : "Waiting for the first sync...";
+}
+
+function taskIsMissing(task) {
+  return Boolean(task.missing);
+}
+
+function canToggleTaskMissing() {
+  return isAdmin() && state.loaded && state.missingSupported;
+}
+
+function getTaskMissingToggleLabel(task) {
+  return taskIsMissing(task) ? "Clear missing" : "Mark missing";
+}
+
+function shouldShowAssigneeBadge(task) {
+  if (!state.currentUser) {
+    return false;
   }
 
-  if (!noteColumnAvailable) {
-    return "Run the latest Supabase SQL migration to enable notes.";
-  }
-
-  return "Add an optional note for this floor.";
+  return state.currentUser.role !== "member" || task.owner !== state.currentUser.slug || getVisibleMemberSlugs().size > 1;
 }
 
 function syncTaskNoteUi(task) {
-  const row = boardEl.querySelector(`[data-task-key="${task.taskKey}"]`);
+  const row = boardEl.querySelector(`[data-task-id="${task.id}"]`);
   if (!row) {
     return;
   }
@@ -612,36 +705,35 @@ function syncTaskNoteUi(task) {
     saveButton.textContent = getTaskNoteButtonLabel(task);
   }
 
-  if (noteToggle) {
-    noteToggle.disabled = !canToggleTaskNote(task);
-    noteToggle.textContent = getTaskNoteToggleLabel(task);
-    noteToggle.setAttribute("aria-expanded", String(isTaskNoteEditorOpen(task)));
-  }
-
   if (noteStatus) {
     const statusInfo = getTaskNoteStatusInfo(task);
     noteStatus.className = statusInfo.className;
     noteStatus.textContent = statusInfo.label;
   }
+
+  if (noteToggle) {
+    noteToggle.disabled = !canToggleTaskNote(task);
+    noteToggle.textContent = getTaskNoteToggleLabel(task);
+    noteToggle.setAttribute("aria-expanded", String(isTaskNoteEditorOpen(task)));
+  }
 }
 
 function renderTaskRow(task) {
-  const owner = ownerMeta[task.owner];
-  const state = getTaskState(task);
-  const displayedNote = getDisplayedTaskNote(task);
+  const assignee = getMemberBySlug(task.owner);
   const noteStatusInfo = getTaskNoteStatusInfo(task);
   const noteOpen = isTaskNoteEditorOpen(task);
   const hasNote = taskHasNote(task);
   const notePreview = getTaskNotePreview(task);
-  const noteDisabled = !hasLoadedStatuses || !noteColumnAvailable;
+  const missing = taskIsMissing(task);
 
   return `
-    <div class="task-row is-${state}${hasNote ? " has-note" : ""}" data-task-key="${escapeHtml(task.taskKey)}">
+    <div class="task-row is-${task.status}${hasNote ? " has-note" : ""}${missing ? " is-missing" : ""}" data-task-id="${task.id}">
       <div class="task-row-main">
         <div class="task-primary">
           <div class="task-summary">
-            <span class="task-floor">${escapeHtml(task.floor)}</span>
-            ${PAGE_OWNER ? "" : `<span class="who-badge ${owner.badgeClass}">${owner.label}</span>`}
+            <span class="task-floor">${escapeHtml(task.floor_name)}</span>
+            ${shouldShowAssigneeBadge(task) ? renderMemberBadge(task.owner) : ""}
+            ${missing ? `<span class="task-missing-chip">Missing</span>` : ""}
           </div>
           ${hasNote && !noteOpen ? `
             <div class="task-note-preview" title="${escapeHtml(notePreview)}">
@@ -651,49 +743,58 @@ function renderTaskRow(task) {
           ` : ""}
         </div>
 
-        <div class="task-actions">
+        <div class="task-actions${isAdmin() ? " is-admin" : ""}">
+          ${isAdmin() ? `
+            <button
+              type="button"
+              class="missing-toggle-btn${missing ? " is-active" : ""}"
+              onclick="toggleMissing(${task.id})"
+              ${canToggleTaskMissing() ? "" : "disabled"}
+              aria-pressed="${missing ? "true" : "false"}"
+              aria-label="${escapeHtml(missing ? `Remove missing flag from ${task.building} ${task.floor_name}` : `Mark ${task.building} ${task.floor_name} as missing`)}"
+              title="${escapeHtml(state.missingSupported ? getTaskMissingToggleLabel(task) : "Missing flag needs SQL support")}"
+            >${escapeHtml(missing ? "Clear missing" : "Mark missing")}</button>
+          ` : ""}
           <button
             type="button"
             class="note-toggle-btn${hasNote ? " has-content" : ""}"
             data-note-toggle
-            onclick="toggleNoteEditor(${task.idx})"
+            onclick="toggleNoteEditor(${task.id})"
             ${canToggleTaskNote(task) ? "" : "disabled"}
             aria-expanded="${noteOpen ? "true" : "false"}"
-            aria-controls="note-panel-${task.idx}"
+            aria-controls="note-panel-${task.id}"
           >${escapeHtml(getTaskNoteToggleLabel(task))}</button>
           <button
             type="button"
-            class="status-btn ${stateClass[state]}"
-            onclick="cycleStatus(${task.idx})"
-            ${hasLoadedStatuses ? "" : "disabled"}
-            aria-label="Change status for ${escapeHtml(task.building)} ${escapeHtml(task.floor)}"
-          >${stateLabel[state]}</button>
+            class="status-btn ${stateClass[task.status]}"
+            onclick="cycleStatus(${task.id})"
+            ${state.loaded ? "" : "disabled"}
+            aria-label="Change status for ${escapeHtml(task.building)} ${escapeHtml(task.floor_name)}"
+          >${stateLabel[task.status]}</button>
         </div>
       </div>
 
       ${noteOpen ? `
-        <div class="note-panel" id="note-panel-${task.idx}">
+        <div class="note-panel" id="note-panel-${task.id}">
           <div class="note-panel-head">
-            <label class="note-label" for="task-note-${task.idx}">Floor note</label>
-            <span class="note-hint">Optional</span>
+            <label class="note-label" for="task-note-${task.id}">Task note</label>
+            <span class="note-hint">${escapeHtml(getDisplayName(assignee))}</span>
           </div>
           <textarea
-            id="task-note-${task.idx}"
+            id="task-note-${task.id}"
             class="note-input"
             rows="3"
             placeholder="${escapeHtml(getTaskNotePlaceholder())}"
-            oninput="updateNoteDraft(event, ${task.idx})"
-            onkeydown="handleNoteKeydown(event, ${task.idx})"
-            ${noteDisabled ? "disabled" : ""}
-          >${escapeHtml(displayedNote)}</textarea>
-
+            oninput="updateNoteDraft(event, ${task.id})"
+            onkeydown="handleNoteKeydown(event, ${task.id})"
+          >${escapeHtml(getDisplayedTaskNote(task))}</textarea>
           <div class="note-toolbar">
             <span class="${noteStatusInfo.className}" data-note-state>${escapeHtml(noteStatusInfo.label)}</span>
             <button
               type="button"
               class="note-save-btn"
               data-note-save
-              onclick="saveNote(${task.idx})"
+              onclick="saveNote(${task.id})"
               ${canSaveTaskNote(task) ? "" : "disabled"}
             >${escapeHtml(getTaskNoteButtonLabel(task))}</button>
           </div>
@@ -705,395 +806,1004 @@ function renderTaskRow(task) {
 
 function renderBoard() {
   const groups = buildTaskGroups(getVisibleTasks());
-  const byEst = { 1: [], 2: [] };
+  const estGroups = new Map();
 
   groups.forEach((group) => {
-    byEst[group.est].push(group);
-  });
-
-  let html = "";
-
-  [1, 2].forEach((est) => {
-    if (!byEst[est].length) {
-      return;
+    if (!estGroups.has(group.est)) {
+      estGroups.set(group.est, []);
     }
 
-    html += `<section class="est-section"><div class="est-label">EST ${est}</div><div class="grid">`;
+    estGroups.get(group.est).push(group);
+  });
 
-    byEst[est].forEach((group) => {
-      html += `
-        <article class="card building-card ${getGroupCardClass(group)}">
-          <div class="building-card-head">
-            <div class="building-card-copy">
-              <span class="est-tag">EST ${group.est}</span>
-              <h2 class="bname">${escapeHtml(group.building)}</h2>
-              ${getGroupHighlightsHtml(group)}
+  const sections = Array.from(estGroups.keys())
+    .sort((left, right) => left - right)
+    .map((est) => {
+      const cards = estGroups.get(est).map((group) => {
+        const accent = getGroupAccent(group);
+
+        return `
+          <article class="card building-card" style="--card-accent:${accent.solid}; --card-accent-soft:${accent.soft}; --card-accent-strong:${accent.strong}">
+            <div class="building-card-head">
+              <div class="building-card-copy">
+                <span class="est-tag">EST ${group.est}</span>
+                <h2 class="bname">${escapeHtml(group.building)}</h2>
+                ${getGroupHighlightsHtml(group)}
+              </div>
+              ${getGroupMetaHtml(group)}
             </div>
-            ${getGroupMetaHtml(group)}
-          </div>
+            <div class="building-task-list">
+              ${group.items.map((task) => renderTaskRow(task)).join("")}
+            </div>
+          </article>
+        `;
+      }).join("");
 
-          <div class="building-task-list">
-            ${group.items.map((task) => renderTaskRow(task)).join("")}
-          </div>
-        </article>
+      return `
+        <section class="est-section">
+          <div class="est-label">EST ${est}</div>
+          <div class="grid">${cards}</div>
+        </section>
       `;
     });
 
-    html += "</div></section>";
-  });
+  boardEl.innerHTML = sections.length
+    ? sections.join("")
+    : `<div class="empty-state">No tasks match the current filter.</div>`;
+}
 
-  if (!html) {
-    html = `<div class="empty-state">No tasks match the current filter.</div>`;
+function getAccentOptions(selectedKey) {
+  return Object.keys(accentPalette).map((key) => `
+    <option value="${escapeHtml(key)}" ${selectedKey === key ? "selected" : ""}>${escapeHtml(key.replace(/-/g, " "))}</option>
+  `).join("");
+}
+
+function getManagerOptions(selectedSlug, editingSlug) {
+  return [
+    `<option value="">No manager</option>`,
+    ...getActiveMembers()
+      .filter((member) => member.slug !== editingSlug)
+      .map((member) => `<option value="${escapeHtml(member.slug)}" ${selectedSlug === member.slug ? "selected" : ""}>${escapeHtml(getDisplayName(member))}</option>`)
+  ].join("");
+}
+
+function getAssigneeOptions(selectedSlug) {
+  return getActiveMembers()
+    .filter((member) => member.role !== "admin")
+    .map((member) => `<option value="${escapeHtml(member.slug)}" ${selectedSlug === member.slug ? "selected" : ""}>${escapeHtml(getDisplayName(member))}</option>`)
+    .join("");
+}
+
+function getTaskEditorValue() {
+  return state.taskEditorId ? getTaskById(state.taskEditorId) : null;
+}
+
+function getMemberEditorValue() {
+  return state.memberEditorSlug ? getMemberBySlug(state.memberEditorSlug) : null;
+}
+
+function renderAdminTools() {
+  if (!managementRootEl) {
+    return;
   }
 
-  boardEl.innerHTML = html;
+  if (!isAdmin()) {
+    managementRootEl.innerHTML = "";
+    managementRootEl.classList.add("is-hidden");
+    return;
+  }
+
+  managementRootEl.classList.remove("is-hidden");
+
+  const editingMember = getMemberEditorValue();
+  const editingTask = getTaskEditorValue();
+  const members = getActiveMembers();
+  const tasks = sortTasks(state.tasks);
+
+  managementRootEl.innerHTML = `
+    <section class="admin-tools">
+      <div class="admin-tools-head">
+        <div>
+          <span class="panel-kicker">Admin Controls</span>
+          <h2 class="panel-title">Manage Team And Tasks</h2>
+          <p class="panel-sub">Add, edit, delete, or reseed people and March 2026 tasks from one place.</p>
+        </div>
+        <button type="button" class="ghost-btn" onclick="seedDefaultData()">Load March 2026 Seed</button>
+      </div>
+
+      <div class="admin-grid">
+        <article class="admin-card">
+          <div class="panel-head">
+            <div>
+              <span class="panel-kicker">People</span>
+              <h3 class="panel-title">Team Members</h3>
+            </div>
+            <button type="button" class="ghost-btn" onclick="resetMemberForm()">New person</button>
+          </div>
+
+          <form class="admin-form" onsubmit="saveMemberFromForm(event)">
+            <div class="form-grid">
+              <label class="field">
+                <span>Name</span>
+                <input name="display_name" type="text" value="${escapeHtml(editingMember?.display_name || "")}" placeholder="Mahmoud Feid" required>
+              </label>
+
+              <label class="field">
+                <span>Slug</span>
+                <input name="slug" type="text" value="${escapeHtml(editingMember?.slug || "")}" placeholder="mahmoud-feid" ${editingMember ? "readonly" : ""} required>
+              </label>
+
+              <label class="field">
+                <span>Role</span>
+                <select name="role">
+                  ${["admin", "lead", "member"].map((role) => `<option value="${role}" ${(editingMember?.role || "member") === role ? "selected" : ""}>${escapeHtml(role)}</option>`).join("")}
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Manager</span>
+                <select name="manager_slug">
+                  ${getManagerOptions(editingMember?.manager_slug || "", editingMember?.slug || "")}
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Accent</span>
+                <select name="accent_key">
+                  ${getAccentOptions(editingMember?.accent_key || "accent")}
+                </select>
+              </label>
+            </div>
+
+            <div class="inline-actions">
+              <button type="submit" class="primary-btn">${editingMember ? "Save member" : "Add member"}</button>
+              <button type="button" class="ghost-btn" onclick="resetMemberForm()">Clear</button>
+            </div>
+          </form>
+
+          <div class="admin-list">
+            ${members.map((member) => `
+              <div class="admin-row">
+                <div class="admin-row-copy">
+                  <strong>${escapeHtml(getDisplayName(member))}</strong>
+                  <span>${escapeHtml(member.role)}${member.manager_slug ? ` - reports to ${escapeHtml(getDisplayName(member.manager_slug))}` : ""}</span>
+                </div>
+                <div class="admin-row-actions">
+                  <button type="button" class="ghost-btn" onclick="editMember('${member.slug}')">Edit</button>
+                  <button type="button" class="danger-btn" onclick="deleteMember('${member.slug}')">Delete</button>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </article>
+
+        <article class="admin-card">
+          <div class="panel-head">
+            <div>
+              <span class="panel-kicker">Tasks</span>
+              <h3 class="panel-title">March Inventory</h3>
+            </div>
+            <button type="button" class="ghost-btn" onclick="resetTaskForm()">New task</button>
+          </div>
+
+          <form class="admin-form" onsubmit="saveTaskFromForm(event)">
+            <div class="form-grid">
+              <label class="field">
+                <span>EST</span>
+                <select name="est">
+                  <option value="1" ${(editingTask?.est || 1) === 1 ? "selected" : ""}>EST 1</option>
+                  <option value="2" ${(editingTask?.est || 1) === 2 ? "selected" : ""}>EST 2</option>
+                </select>
+              </label>
+
+              <label class="field field-wide">
+                <span>Building</span>
+                <input name="building" type="text" value="${escapeHtml(editingTask?.building || "")}" placeholder="Future - Engineering" required>
+              </label>
+
+              <label class="field field-wide">
+                <span>Unit / Floor</span>
+                <input name="floor_name" type="text" value="${escapeHtml(editingTask?.floor_name || "")}" placeholder="Ground / School name / 1st floor" required>
+              </label>
+
+              <label class="field">
+                <span>Assignee</span>
+                <select name="owner">
+                  ${getAssigneeOptions(editingTask?.owner || "")}
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Status</span>
+                <select name="status">
+                  ${stateOrder.map((status) => `<option value="${status}" ${(editingTask?.status || "todo") === status ? "selected" : ""}>${escapeHtml(stateLabel[status])}</option>`).join("")}
+                </select>
+              </label>
+
+              <label class="field field-wide">
+                <span>Note</span>
+                <textarea name="note" rows="3" placeholder="Optional note">${escapeHtml(editingTask?.note || "")}</textarea>
+              </label>
+
+              <label class="checkbox-field field-wide">
+                <input name="missing" type="checkbox" ${editingTask?.missing ? "checked" : ""}>
+                <span>Mark this unit as missing</span>
+              </label>
+            </div>
+
+            <div class="inline-actions">
+              <button type="submit" class="primary-btn">${editingTask ? "Save task" : "Add task"}</button>
+              <button type="button" class="ghost-btn" onclick="resetTaskForm()">Clear</button>
+            </div>
+          </form>
+
+          <div class="admin-list task-list">
+            ${tasks.map((task) => `
+              <div class="admin-row">
+                <div class="admin-row-copy">
+                  <strong>EST ${task.est} - ${escapeHtml(task.building)} - ${escapeHtml(task.floor_name)}</strong>
+                  <span>${escapeHtml(getDisplayName(task.owner))} - ${escapeHtml(stateLabel[task.status])}${task.missing ? " - Missing" : ""}</span>
+                </div>
+                <div class="admin-row-actions">
+                  <button type="button" class="ghost-btn" onclick="editTaskFromAdmin(${task.id})">Edit</button>
+                  <button type="button" class="danger-btn" onclick="deleteTask(${task.id})">Delete</button>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </article>
+      </div>
+    </section>
+  `;
 }
 
 function render() {
   renderWarning();
+  renderPageHeader();
+  renderPageNav();
   renderStats();
   updateFilterButtons();
+  renderAdminTools();
   renderBoard();
 }
 
-function getSetupGuidance() {
-  return "Supabase returned 0 visible rows for task_statuses. Run supabase_setup.sql once in the Supabase SQL Editor.";
+function buildPreviewMessage() {
+  return "Preview mode is active. Changes are stored in this browser only until you run the latest supabase_setup.sql. Teams without detailed floor distribution were seeded with a balanced local split under each lead so you can review the hierarchy locally.";
 }
 
-function getTaskKeyGuidance() {
-  return "Run the latest supabase_setup.sql so every task gets a stable task_key. That prevents one floor from inheriting another floor's status if task order ever changes.";
+async function detectBackend() {
+  try {
+    const { error } = await sb.from("team_members").select("slug").limit(1);
+    return error ? BACKEND_PREVIEW : BACKEND_SUPABASE;
+  } catch {
+    return BACKEND_PREVIEW;
+  }
 }
 
-function getNoteGuidance() {
-  return "Run the latest supabase_setup.sql to enable per-floor notes for every task.";
+async function loadPreviewData() {
+  ensurePreviewSeed();
+  state.missingSupported = true;
+
+  return {
+    members: sortMembers(readLocalJson(MEMBER_STORAGE_KEY, getSeedMembers()).map((member) => cloneMember(member))),
+    tasks: sortTasks(readLocalJson(TASK_STORAGE_KEY, getSeedTasks()).map((task) => cloneTask(task)))
+  };
 }
 
-function getSelectableColumns() {
-  const columns = ["id", "status"];
+async function loadRemoteData() {
+  const taskFieldsBase = "id,task_key,est,building,floor_name,owner,status,note";
+  let remoteTasksResponse = await sb.from("task_statuses")
+    .select(`${taskFieldsBase},missing`)
+    .order("id", { ascending: true });
 
-  if (taskKeyColumnAvailable) {
-    columns.push("task_key");
+  if (remoteTasksResponse.error) {
+    remoteTasksResponse = await sb.from("task_statuses")
+      .select(taskFieldsBase)
+      .order("id", { ascending: true });
+
+    state.missingSupported = false;
+  } else {
+    state.missingSupported = true;
   }
 
-  if (noteColumnAvailable) {
-    columns.push("note");
+  const [membersResponse, tasksResponse] = await Promise.all([
+    sb.from("team_members")
+      .select("slug,display_name,role,manager_slug,accent_key,sort_order,active")
+      .order("sort_order", { ascending: true })
+      .order("display_name", { ascending: true }),
+    Promise.resolve(remoteTasksResponse)
+  ]);
+
+  if (membersResponse.error) {
+    throw membersResponse.error;
   }
 
-  return columns.join(",");
+  if (tasksResponse.error) {
+    throw tasksResponse.error;
+  }
+
+  return {
+    members: sortMembers((membersResponse.data || []).map((member) => cloneMember(member))),
+    tasks: sortTasks((tasksResponse.data || []).map((task) => cloneTask(task)))
+  };
 }
 
-async function selectTaskRows() {
-  const fullResponse = await sb.from("task_statuses").select("id,status,task_key,note").order("id");
-  if (!fullResponse.error) {
-    return { ...fullResponse, hasTaskKeyColumn: true, hasNoteColumn: true };
-  }
+function pruneEphemeralTaskState() {
+  const validIds = new Set(state.tasks.map((task) => Number(task.id)));
 
-  const taskKeyResponse = await sb.from("task_statuses").select("id,status,task_key").order("id");
-  if (!taskKeyResponse.error) {
-    return { ...taskKeyResponse, hasTaskKeyColumn: true, hasNoteColumn: false };
-  }
-
-  const basicResponse = await sb.from("task_statuses").select("id,status").order("id");
-  if (!basicResponse.error) {
-    return { ...basicResponse, hasTaskKeyColumn: false, hasNoteColumn: false };
-  }
-
-  return { data: null, error: fullResponse.error, hasTaskKeyColumn: false, hasNoteColumn: false };
-}
-
-function buildCapabilitiesWarning(rows) {
-  const matchedTaskKeys = rows.filter((row) => typeof row.task_key === "string" && knownTaskKeys.has(row.task_key)).length;
-
-  if (!rows.length) {
-    return getSetupGuidance();
-  }
-
-  if (rows.length < EXPECTED_TASK_COUNT) {
-    return `Loaded ${rows.length} visible rows for ${EXPECTED_TASK_COUNT} tasks. Seed the missing rows in Supabase and confirm anon select/update policies exist.`;
-  }
-
-  const messages = [];
-
-  if (!taskKeyColumnAvailable) {
-    messages.push(`${getTaskKeyGuidance()} The dashboard is still running on legacy numeric IDs.`);
-  } else if (matchedTaskKeys < EXPECTED_TASK_COUNT) {
-    messages.push(`Loaded ${matchedTaskKeys} stable task keys for ${EXPECTED_TASK_COUNT} tasks. ${getTaskKeyGuidance()}`);
-  }
-
-  if (!noteColumnAvailable) {
-    messages.push(getNoteGuidance());
-  }
-
-  return messages.join(" ");
-}
-
-async function loadStatuses() {
-  setDot("saving");
-  clearTaskData();
-  hasLoadedStatuses = false;
-
-  const { data, error, hasTaskKeyColumn, hasNoteColumn } = await selectTaskRows();
-
-  taskKeyColumnAvailable = hasTaskKeyColumn;
-  noteColumnAvailable = hasNoteColumn;
-
-  if (error) {
-    setWarning(`Could not load task statuses from Supabase: ${error.message}`);
-    setDot("red");
-    render();
-    return;
-  }
-
-  const rows = Array.isArray(data) ? data : [];
-  idMode = detectIdMode(rows);
-
-  rows.forEach((row) => {
-    applyRowData(row);
+  Object.keys(state.noteDraftsById).forEach((key) => {
+    if (!validIds.has(Number(key))) {
+      delete state.noteDraftsById[key];
+    }
   });
 
-  const capabilitiesWarning = buildCapabilitiesWarning(rows);
-  if (capabilitiesWarning) {
-    setWarning(capabilitiesWarning);
-  } else {
-    clearWarning();
-  }
-
-  hasLoadedStatuses = true;
-  setDot("ok");
-  render();
-}
-
-async function persistTaskByTaskKey(task, patch) {
-  const { data, error } = await sb
-    .from("task_statuses")
-    .update(patch)
-    .eq("task_key", task.taskKey)
-    .select(getSelectableColumns());
-
-  if (error) {
-    return { ok: false, error, needsLegacyFallback: true };
-  }
-
-  if (Array.isArray(data) && data.length > 0) {
-    inferIdModeFromRowId(data[0].id);
-    applyRowData(data[0]);
-    return { ok: true, row: data[0] };
-  }
-
-  return { ok: false, needsLegacyFallback: true };
-}
-
-async function persistTaskByLegacyId(task, patch) {
-  let lastError = null;
-
-  for (const dbId of getLegacyWriteIds(task)) {
-    const { data, error } = await sb
-      .from("task_statuses")
-      .update(patch)
-      .eq("id", dbId)
-      .select(getSelectableColumns());
-
-    if (error) {
-      lastError = error;
-      continue;
+  Object.keys(state.noteUiStateById).forEach((key) => {
+    if (!validIds.has(Number(key))) {
+      delete state.noteUiStateById[key];
     }
+  });
 
-    if (Array.isArray(data) && data.length > 0) {
-      inferIdModeFromRowId(data[0].id);
-      applyRowData(data[0]);
-      return { ok: true, row: data[0] };
+  Array.from(state.noteEditorOpenIds).forEach((taskId) => {
+    if (!validIds.has(Number(taskId))) {
+      state.noteEditorOpenIds.delete(taskId);
     }
-  }
-
-  return { ok: false, error: lastError };
+  });
 }
 
-async function persistStatus(task, nextState) {
-  if (taskKeyColumnAvailable) {
-    const taskKeyResult = await persistTaskByTaskKey(task, { status: nextState });
-    if (taskKeyResult.ok || !taskKeyResult.needsLegacyFallback) {
-      return taskKeyResult;
-    }
-  }
+function applyLoadedPayload(payload) {
+  state.members = payload.members;
+  state.tasks = payload.tasks;
+  state.currentUser = resolveCurrentUser();
+  state.loaded = true;
 
-  return persistTaskByLegacyId(task, { status: nextState });
-}
-
-async function persistNote(task, nextNote) {
-  if (!noteColumnAvailable) {
-    return { ok: false, noteUnavailable: true };
-  }
-
-  if (taskKeyColumnAvailable) {
-    const taskKeyResult = await persistTaskByTaskKey(task, { note: nextNote });
-    if (taskKeyResult.ok || !taskKeyResult.needsLegacyFallback) {
-      return taskKeyResult;
-    }
-  }
-
-  return persistTaskByLegacyId(task, { note: nextNote });
-}
-
-async function cycleStatus(taskIdx) {
-  if (!hasLoadedStatuses) {
-    setWarning("Please wait for the dashboard to finish syncing before changing a status.");
-    render();
-    return;
-  }
-
-  const task = tasks[taskIdx];
-  if (!task) {
-    return;
-  }
-
-  const current = getTaskState(task);
-  const next = stateOrder[(stateOrder.indexOf(current) + 1) % stateOrder.length];
-  const snapshot = captureTaskStatusSnapshot(task);
-
-  setOptimisticTaskStatus(task, next);
-  render();
-  setDot("saving");
-
-  const result = await persistStatus(task, next);
-
-  if (result.ok) {
-    clearTransientWarning();
-    setDot("ok");
-    render();
-    return;
-  }
-
-  restoreTaskStatusSnapshot(snapshot);
-  setWarning(`Save failed for "${task.building} / ${task.floor}". Check the row visibility, RLS policies, and run the updated supabase_setup.sql so task_key values stay aligned with each floor.`);
-  setDot("red");
-  render();
-}
-
-function updateNoteDraft(event, taskIdx) {
-  const task = tasks[taskIdx];
-  if (!task) {
-    return;
-  }
-
-  noteDraftsByKey[task.taskKey] = normalizeNoteValue(event.target.value);
-
-  if (noteDraftsByKey[task.taskKey] === getPersistedTaskNote(task)) {
-    dirtyNoteKeys.delete(task.taskKey);
-    if (noteUiStateByKey[task.taskKey] !== "saving") {
-      noteUiStateByKey[task.taskKey] = "idle";
-    }
-  } else {
-    dirtyNoteKeys.add(task.taskKey);
-    noteUiStateByKey[task.taskKey] = "dirty";
-  }
-
-  syncTaskNoteUi(task);
-}
-
-function handleNoteKeydown(event, taskIdx) {
-  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-    event.preventDefault();
-    saveNote(taskIdx);
-  }
-}
-
-function toggleNoteEditor(taskIdx) {
-  if (!hasLoadedStatuses) {
-    setWarning("Please wait for the dashboard to finish syncing before editing a note.");
-    render();
-    return;
-  }
-
-  if (!noteColumnAvailable) {
-    setWarning(getNoteGuidance());
-    render();
-    return;
-  }
-
-  const task = tasks[taskIdx];
-  if (!task) {
-    return;
-  }
-
-  if (noteEditorOpenKeys.has(task.taskKey)) {
-    noteEditorOpenKeys.delete(task.taskKey);
-  } else {
-    noteEditorOpenKeys.add(task.taskKey);
-  }
-
+  pruneEphemeralTaskState();
+  applyTheme();
+  setModeMessage(state.backend === BACKEND_PREVIEW ? buildPreviewMessage() : "");
   clearTransientWarning();
   render();
 }
 
-async function saveNote(taskIdx) {
-  if (!hasLoadedStatuses) {
-    setWarning("Please wait for the dashboard to finish syncing before saving a note.");
-    render();
+async function loadAllData() {
+  if (state.isReloading) {
     return;
   }
 
-  if (!noteColumnAvailable) {
-    setWarning(getNoteGuidance());
-    render();
+  state.isReloading = true;
+  setDot("saving");
+
+  try {
+    const payload = state.backend === BACKEND_SUPABASE
+      ? await loadRemoteData()
+      : await loadPreviewData();
+
+    applyLoadedPayload(payload);
+    setDot("ok");
+  } catch (error) {
+    if (state.backend === BACKEND_SUPABASE) {
+      state.backend = BACKEND_PREVIEW;
+      setWarning(`Could not load the live hierarchy from Supabase: ${error.message}. Falling back to local preview data.`);
+
+      try {
+        const previewPayload = await loadPreviewData();
+        applyLoadedPayload(previewPayload);
+        setDot("ok");
+        return;
+      } catch (previewError) {
+        setWarning(`Could not load preview data after Supabase fallback: ${previewError.message}`);
+        setDot("red");
+        return;
+      }
+    }
+
+    setWarning(`Could not load preview data: ${error.message}`);
+    setDot("red");
+  } finally {
+    state.isReloading = false;
+  }
+}
+
+function persistPreviewSnapshot() {
+  writeLocalJson(MEMBER_STORAGE_KEY, state.members);
+  writeLocalJson(TASK_STORAGE_KEY, state.tasks);
+}
+
+function getNextTaskId() {
+  return state.tasks.reduce((maxId, task) => Math.max(maxId, Number(task.id) || 0), 0) + 1;
+}
+
+function generateTaskKey(fields, excludeTaskId) {
+  const baseKey = `${fields.est}__${slugify(fields.building)}__${slugify(fields.floor_name)}__${slugify(fields.owner)}`;
+  let candidate = baseKey;
+  let suffix = 2;
+
+  while (state.tasks.some((task) => task.task_key === candidate && task.id !== excludeTaskId)) {
+    candidate = `${baseKey}--${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+async function saveMember(member) {
+  const payload = {
+    slug: member.slug,
+    display_name: member.display_name,
+    role: member.role,
+    manager_slug: member.role === "admin" ? null : member.manager_slug,
+    accent_key: member.accent_key,
+    sort_order: member.sort_order,
+    active: true
+  };
+
+  if (state.backend === BACKEND_PREVIEW) {
+    const existingIndex = state.members.findIndex((entry) => entry.slug === payload.slug);
+    if (existingIndex >= 0) {
+      state.members.splice(existingIndex, 1, cloneMember(payload));
+    } else {
+      state.members.push(cloneMember(payload));
+    }
+
+    state.members = sortMembers(state.members);
+    persistPreviewSnapshot();
     return;
   }
 
-  const task = tasks[taskIdx];
+  const { error } = await sb.from("team_members").upsert(payload, { onConflict: "slug" });
+  if (error) {
+    throw error;
+  }
+}
+
+async function deleteMemberBySlug(slug) {
+  if (slug === "admin") {
+    throw new Error("The root admin account cannot be deleted.");
+  }
+
+  if (state.members.some((member) => member.manager_slug === slug)) {
+    throw new Error("Reassign or delete this member's reports first.");
+  }
+
+  if (state.tasks.some((task) => task.owner === slug)) {
+    throw new Error("Reassign this member's tasks before deleting them.");
+  }
+
+  if (state.backend === BACKEND_PREVIEW) {
+    state.members = state.members.filter((member) => member.slug !== slug);
+    persistPreviewSnapshot();
+    return;
+  }
+
+  const { error } = await sb.from("team_members").delete().eq("slug", slug);
+  if (error) {
+    throw error;
+  }
+}
+
+async function saveTask(task) {
+  const payload = {
+    id: Number(task.id),
+    est: Number(task.est),
+    building: task.building.trim(),
+    floor_name: task.floor_name.trim(),
+    owner: task.owner,
+    status: stateOrder.includes(task.status) ? task.status : "todo",
+    note: normalizeNoteValue(task.note),
+    task_key: task.task_key
+  };
+
+  if (state.backend === BACKEND_PREVIEW || state.missingSupported) {
+    payload.missing = Boolean(task.missing);
+  }
+
+  if (state.backend === BACKEND_PREVIEW) {
+    const existingIndex = state.tasks.findIndex((entry) => entry.id === payload.id);
+    if (existingIndex >= 0) {
+      state.tasks.splice(existingIndex, 1, cloneTask(payload));
+    } else {
+      state.tasks.push(cloneTask(payload));
+    }
+
+    state.tasks = sortTasks(state.tasks);
+    persistPreviewSnapshot();
+    return;
+  }
+
+  const isExisting = state.tasks.some((entry) => entry.id === payload.id);
+  const response = isExisting
+    ? await sb.from("task_statuses").update(payload).eq("id", payload.id)
+    : await sb.from("task_statuses").insert(payload);
+
+  if (response.error) {
+    throw response.error;
+  }
+}
+
+async function deleteTaskById(taskId) {
+  if (state.backend === BACKEND_PREVIEW) {
+    state.tasks = state.tasks.filter((task) => task.id !== taskId);
+    persistPreviewSnapshot();
+    return;
+  }
+
+  const { error } = await sb.from("task_statuses").delete().eq("id", taskId);
+  if (error) {
+    throw error;
+  }
+}
+
+async function updateTaskPatch(taskId, patch) {
+  const task = getTaskById(taskId);
+  if (!task) {
+    throw new Error("Task not found.");
+  }
+
+  const nextTask = cloneTask({ ...task, ...patch });
+  await saveTask(nextTask);
+}
+
+async function seedDefaultData() {
+  if (!window.confirm("This will load the March 2026 hierarchy seed for people and tasks. Continue?")) {
+    return;
+  }
+
+  try {
+    setDot("saving");
+
+    if (state.backend === BACKEND_PREVIEW) {
+      state.members = sortMembers(getSeedMembers());
+      state.tasks = sortTasks(getSeedTasks());
+      persistPreviewSnapshot();
+    } else {
+      const seedMembers = getSeedMembers();
+      const seedTasks = getSeedTasks();
+      const existingTasksByKey = new Map(state.tasks.map((task) => [task.task_key, task]));
+      let nextTaskId = getNextTaskId();
+
+      const normalizedTasks = seedTasks.map((task) => {
+        const existing = existingTasksByKey.get(task.task_key);
+        if (existing) {
+          return {
+            ...task,
+            id: existing.id,
+            note: existing.note,
+            status: existing.status
+          };
+        }
+
+        return {
+          ...task,
+          id: nextTaskId++
+        };
+      });
+
+      const { error: membersError } = await sb.from("team_members").upsert(seedMembers, { onConflict: "slug" });
+      if (membersError) {
+        throw membersError;
+      }
+
+      for (const task of normalizedTasks) {
+        const existing = existingTasksByKey.get(task.task_key);
+        if (existing) {
+          const { error } = await sb.from("task_statuses").update(task).eq("id", existing.id);
+          if (error) {
+            throw error;
+          }
+        } else {
+          const { error } = await sb.from("task_statuses").insert(task);
+          if (error) {
+            throw error;
+          }
+        }
+      }
+    }
+
+    await loadAllData();
+    setWarning("March 2026 seed loaded.");
+    setDot("ok");
+  } catch (error) {
+    setWarning(`Could not load the March seed: ${error.message}`);
+    setDot("red");
+  }
+}
+
+function validateMemberPayload(payload) {
+  const display_name = String(payload.display_name || "").trim();
+  const slug = slugify(payload.slug || display_name);
+  const role = payload.role;
+  const manager_slug = payload.manager_slug || null;
+  const accent_key = payload.accent_key || "accent";
+  const editingExisting = Boolean(state.memberEditorSlug);
+
+  if (!display_name) {
+    throw new Error("Member name is required.");
+  }
+
+  if (!slug) {
+    throw new Error("Member slug is required.");
+  }
+
+  if (!["admin", "lead", "member"].includes(role)) {
+    throw new Error("Role is required.");
+  }
+
+  if (!editingExisting && state.members.some((member) => member.slug === slug)) {
+    throw new Error("That slug already exists.");
+  }
+
+  if (role !== "admin" && !manager_slug) {
+    throw new Error("Non-admin users need a manager.");
+  }
+
+  if (manager_slug === slug) {
+    throw new Error("A user cannot manage themselves.");
+  }
+
+  let currentManager = manager_slug;
+  while (currentManager) {
+    if (currentManager === slug) {
+      throw new Error("That manager would create a reporting cycle.");
+    }
+
+    currentManager = getMemberBySlug(currentManager)?.manager_slug || null;
+  }
+
+  return {
+    slug,
+    display_name,
+    role,
+    manager_slug: role === "admin" ? null : manager_slug,
+    accent_key,
+    sort_order: editingExisting
+      ? (getMemberBySlug(state.memberEditorSlug)?.sort_order ?? state.members.length * 10)
+      : (state.members.length + 1) * 10,
+    active: true
+  };
+}
+
+function validateTaskPayload(payload) {
+  const est = Number(payload.est);
+  const building = String(payload.building || "").trim();
+  const floor_name = String(payload.floor_name || "").trim();
+  const owner = String(payload.owner || "").trim();
+  const status = stateOrder.includes(payload.status) ? payload.status : "todo";
+  const note = normalizeNoteValue(payload.note);
+  const editingTask = getTaskEditorValue();
+  const id = editingTask ? editingTask.id : getNextTaskId();
+  const missing = payload.missing == null
+    ? Boolean(editingTask?.missing)
+    : payload.missing === true || payload.missing === "true" || payload.missing === "on";
+
+  if (![1, 2].includes(est)) {
+    throw new Error("EST must be 1 or 2.");
+  }
+
+  if (!building) {
+    throw new Error("Building is required.");
+  }
+
+  if (!floor_name) {
+    throw new Error("Unit / floor is required.");
+  }
+
+  if (!getMemberBySlug(owner)) {
+    throw new Error("Choose a valid assignee.");
+  }
+
+  return {
+    id,
+    est,
+    building,
+    floor_name,
+    owner,
+    status,
+    note,
+    missing,
+    task_key: generateTaskKey({ est, building, floor_name, owner }, editingTask?.id || null)
+  };
+}
+
+async function saveMemberFromForm(event) {
+  event.preventDefault();
+
+  try {
+    clearTransientWarning();
+    setDot("saving");
+
+    const formData = new FormData(event.currentTarget);
+    const payload = validateMemberPayload({
+      display_name: formData.get("display_name"),
+      slug: formData.get("slug"),
+      role: formData.get("role"),
+      manager_slug: formData.get("manager_slug"),
+      accent_key: formData.get("accent_key")
+    });
+
+    await saveMember(payload);
+    state.memberEditorSlug = null;
+    await loadAllData();
+    setWarning(`Saved ${payload.display_name}.`);
+  } catch (error) {
+    setWarning(`Save failed: ${error.message}`);
+    setDot("red");
+  }
+}
+
+function editMember(slug) {
+  state.memberEditorSlug = slug;
+  render();
+  managementRootEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetMemberForm() {
+  state.memberEditorSlug = null;
+  render();
+}
+
+async function deleteMember(slug) {
+  const member = getMemberBySlug(slug);
+  if (!member) {
+    return;
+  }
+
+  if (!window.confirm(`Delete ${getDisplayName(member)}? This cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    clearTransientWarning();
+    setDot("saving");
+    await deleteMemberBySlug(slug);
+    if (state.memberEditorSlug === slug) {
+      state.memberEditorSlug = null;
+    }
+    await loadAllData();
+    setWarning(`${getDisplayName(member)} was removed.`);
+  } catch (error) {
+    setWarning(`Could not delete member: ${error.message}`);
+    setDot("red");
+  }
+}
+
+async function saveTaskFromForm(event) {
+  event.preventDefault();
+
+  try {
+    clearTransientWarning();
+    setDot("saving");
+
+    const formData = new FormData(event.currentTarget);
+    const payload = validateTaskPayload({
+      est: formData.get("est"),
+      building: formData.get("building"),
+      floor_name: formData.get("floor_name"),
+      owner: formData.get("owner"),
+      status: formData.get("status"),
+      note: formData.get("note"),
+      missing: formData.get("missing")
+    });
+
+    await saveTask(payload);
+    state.taskEditorId = null;
+    await loadAllData();
+    setWarning(`Saved ${payload.building} - ${payload.floor_name}.`);
+  } catch (error) {
+    setWarning(`Save failed: ${error.message}`);
+    setDot("red");
+  }
+}
+
+function editTaskFromAdmin(taskId) {
+  state.taskEditorId = Number(taskId);
+  render();
+  managementRootEl?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetTaskForm() {
+  state.taskEditorId = null;
+  render();
+}
+
+async function deleteTask(taskId) {
+  const task = getTaskById(taskId);
   if (!task) {
     return;
   }
 
-  const nextNote = getDisplayedTaskNote(task);
-
-  noteUiStateByKey[task.taskKey] = "saving";
-  syncTaskNoteUi(task);
-  setDot("saving");
-
-  const result = await persistNote(task, nextNote);
-
-  if (result.ok) {
-    dirtyNoteKeys.delete(task.taskKey);
-    noteDraftsByKey[task.taskKey] = nextNote;
-    noteUiStateByKey[task.taskKey] = "saved";
-    clearTransientWarning();
-    setDot("ok");
-    render();
+  if (!window.confirm(`Delete ${task.building} - ${task.floor_name}?`)) {
     return;
   }
 
-  noteUiStateByKey[task.taskKey] = "error";
-  setWarning(`Note save failed for "${task.building} / ${task.floor}". ${result.noteUnavailable ? getNoteGuidance() : "Check Supabase update access and try again."}`);
-  setDot("red");
-  render();
+  try {
+    clearTransientWarning();
+    setDot("saving");
+    await deleteTaskById(Number(taskId));
+    if (state.taskEditorId === Number(taskId)) {
+      state.taskEditorId = null;
+    }
+    await loadAllData();
+    setWarning(`${task.building} - ${task.floor_name} was removed.`);
+  } catch (error) {
+    setWarning(`Could not delete task: ${error.message}`);
+    setDot("red");
+  }
 }
 
-filterButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    toggleStatusFilter(button.dataset.statusFilter);
-  });
-});
+function updateNoteDraft(event, taskId) {
+  const task = getTaskById(taskId);
+  if (!task) {
+    return;
+  }
 
-sb.channel("task_statuses_live")
-  .on("postgres_changes", { event: "*", schema: "public", table: "task_statuses" }, (payload) => {
-    if (payload?.new?.task_key && knownTaskKeys.has(payload.new.task_key)) {
-      applyRowData(payload.new);
-      render();
+  state.noteDraftsById[task.id] = normalizeNoteValue(event.target.value);
+  state.noteUiStateById[task.id] = isTaskNoteDirty(task) ? "dirty" : "idle";
+  syncTaskNoteUi(task);
+}
+
+function handleNoteKeydown(event, taskId) {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    saveNote(taskId);
+  }
+}
+
+function toggleNoteEditor(taskId) {
+  const task = getTaskById(taskId);
+  if (!task || !canToggleTaskNote(task)) {
+    return;
+  }
+
+  if (state.noteEditorOpenIds.has(task.id)) {
+    if (!isTaskNoteDirty(task) && !["saving", "error"].includes(getTaskNoteUiState(task))) {
+      state.noteEditorOpenIds.delete(task.id);
+    }
+  } else {
+    state.noteEditorOpenIds.add(task.id);
+  }
+
+  render();
+
+  if (state.noteEditorOpenIds.has(task.id)) {
+    window.setTimeout(() => {
+      document.getElementById(`task-note-${task.id}`)?.focus();
+    }, 0);
+  }
+}
+
+async function saveNote(taskId) {
+  const task = getTaskById(taskId);
+  if (!task || !state.loaded) {
+    return;
+  }
+
+  if (!isTaskNoteDirty(task) && getTaskNoteUiState(task) !== "error") {
+    return;
+  }
+
+  state.noteUiStateById[task.id] = "saving";
+  syncTaskNoteUi(task);
+  setDot("saving");
+
+  try {
+    await updateTaskPatch(task.id, { note: getDisplayedTaskNote(task) });
+    delete state.noteDraftsById[task.id];
+    state.noteUiStateById[task.id] = "saved";
+    await loadAllData();
+  } catch (error) {
+    state.noteUiStateById[task.id] = "error";
+    syncTaskNoteUi(task);
+    setWarning(`Note save failed: ${error.message}`);
+    setDot("red");
+  }
+}
+
+async function cycleStatus(taskId) {
+  const task = getTaskById(taskId);
+  if (!task || !state.loaded) {
+    return;
+  }
+
+  const currentIndex = stateOrder.indexOf(task.status);
+  const nextStatus = stateOrder[(currentIndex + 1) % stateOrder.length];
+
+  try {
+    clearTransientWarning();
+    setDot("saving");
+    await updateTaskPatch(task.id, { status: nextStatus });
+    await loadAllData();
+  } catch (error) {
+    setWarning(`Save failed: ${error.message}`);
+    setDot("red");
+  }
+}
+
+async function toggleMissing(taskId) {
+  const task = getTaskById(taskId);
+  if (!task || !canToggleTaskMissing()) {
+    return;
+  }
+
+  try {
+    clearTransientWarning();
+    setDot("saving");
+    await updateTaskPatch(task.id, { missing: !taskIsMissing(task) });
+    await loadAllData();
+  } catch (error) {
+    setWarning(`Save failed: ${error.message}`);
+    setDot("red");
+  }
+}
+
+function bindFilterButtons() {
+  filterButtons.forEach((button) => {
+    if (button.dataset.bound === "true") {
       return;
     }
 
-    if (Number.isInteger(payload?.new?.id)) {
-      inferIdModeFromRowId(payload.new.id);
-      applyRowData(payload.new);
-      render();
-    }
-  })
-  .subscribe();
+    button.dataset.bound = "true";
+    button.addEventListener("click", () => toggleStatusFilter(button.dataset.statusFilter));
+  });
+}
 
-window.cycleStatus = cycleStatus;
+function scheduleRealtimeReload() {
+  window.clearTimeout(state.reloadTimer);
+  state.reloadTimer = window.setTimeout(() => {
+    void loadAllData();
+  }, 180);
+}
+
+async function teardownRealtime() {
+  const channels = [...state.syncChannels];
+  state.syncChannels = [];
+
+  await Promise.all(channels.map((channel) => sb.removeChannel(channel)));
+}
+
+function bindRealtime() {
+  if (state.backend !== BACKEND_SUPABASE) {
+    return;
+  }
+
+  ["team_members", "task_statuses"].forEach((table) => {
+    const channel = sb
+      .channel(`dashboard-${table}-${Date.now()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table }, () => {
+        scheduleRealtimeReload();
+      })
+      .subscribe();
+
+    state.syncChannels.push(channel);
+  });
+}
+
+async function init() {
+  bindFilterButtons();
+  setDot("saving");
+
+  try {
+    state.backend = await detectBackend();
+    await loadAllData();
+    await teardownRealtime();
+    bindRealtime();
+  } catch (error) {
+    setWarning(`Startup failed: ${error.message}`);
+    setDot("red");
+  }
+}
+
+window.seedDefaultData = seedDefaultData;
+window.saveMemberFromForm = saveMemberFromForm;
+window.editMember = editMember;
+window.resetMemberForm = resetMemberForm;
+window.deleteMember = deleteMember;
+window.saveTaskFromForm = saveTaskFromForm;
+window.editTaskFromAdmin = editTaskFromAdmin;
+window.resetTaskForm = resetTaskForm;
+window.deleteTask = deleteTask;
 window.updateNoteDraft = updateNoteDraft;
 window.handleNoteKeydown = handleNoteKeydown;
 window.toggleNoteEditor = toggleNoteEditor;
 window.saveNote = saveNote;
+window.cycleStatus = cycleStatus;
+window.toggleMissing = toggleMissing;
 
-render();
-loadStatuses();
+void init();
