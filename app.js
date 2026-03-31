@@ -14,6 +14,9 @@ const BACKEND_PREVIEW = "preview";
 const BACKEND_SUPABASE = "supabase";
 const MEMBER_STORAGE_KEY = "task-est-preview-members-v4";
 const TASK_STORAGE_KEY = "task-est-preview-tasks-v4";
+const GROUP_REVIEW_SYSTEM_TASK_ID = -1;
+const GROUP_REVIEW_SYSTEM_TASK_KEY = "__system__group-review-v1";
+const ALLOW_PREVIEW_FALLBACK = ["127.0.0.1", "localhost"].includes(window.location.hostname);
 const stateOrder = ["todo", "wip", "done"];
 
 const stateLabel = {
@@ -134,6 +137,8 @@ const state = {
   taskEditorId: null,
   adminPanelOpen: false,
   adminPanelTab: "people",
+  groupReviewByKey: {},
+  groupReviewRecordId: null,
   noteDraftsById: {},
   noteUiStateById: {},
   noteEditorOpenIds: new Set(),
@@ -193,7 +198,7 @@ function cloneMember(member) {
 function cloneTask(task) {
   return {
     id: Number(task.id),
-    est: Number(task.est) || 1,
+    est: Number.isFinite(Number(task.est)) ? Number(task.est) : 1,
     building: String(task.building || "").trim(),
     floor_name: String(task.floor_name || "").trim(),
     owner: String(task.owner || "").trim(),
@@ -210,6 +215,57 @@ function getSeedMembers() {
 
 function getSeedTasks() {
   return DEFAULT_TASK_SEED.map((task) => cloneTask(task));
+}
+
+function getTaskGroupKeyFromFields(est, building) {
+  return `${Number(est)}|||${String(building || "").trim()}`;
+}
+
+function getTaskGroupKey(task) {
+  return getTaskGroupKeyFromFields(task.est, task.building);
+}
+
+function isGroupReviewSystemTask(task) {
+  return String(task?.task_key || "") === GROUP_REVIEW_SYSTEM_TASK_KEY;
+}
+
+function parseGroupReviewMap(noteValue) {
+  try {
+    const parsed = JSON.parse(String(noteValue || "{}"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .filter(([key, value]) => typeof key === "string" && Boolean(value))
+        .map(([key]) => [key, true])
+    );
+  } catch {
+    return {};
+  }
+}
+
+function pruneGroupReviewMap(groupReviewByKey, tasks) {
+  const validGroupKeys = new Set(tasks.map((task) => getTaskGroupKey(task)));
+
+  return Object.fromEntries(
+    Object.entries(groupReviewByKey || {}).filter(([key, value]) => validGroupKeys.has(key) && Boolean(value))
+  );
+}
+
+function buildGroupReviewSystemTaskPayload(groupReviewByKey, existingId = state.groupReviewRecordId) {
+  return {
+    id: existingId || GROUP_REVIEW_SYSTEM_TASK_ID,
+    task_key: GROUP_REVIEW_SYSTEM_TASK_KEY,
+    est: 0,
+    building: "__system__",
+    floor_name: "group-review-state",
+    owner: "admin",
+    status: "done",
+    note: JSON.stringify(groupReviewByKey),
+    missing: false
+  };
 }
 
 function readLocalJson(key, fallback) {
@@ -590,9 +646,10 @@ function buildTaskGroups(tasksToRender) {
   const groups = new Map();
 
   tasksToRender.forEach((task) => {
-    const key = `${task.est}|||${task.building}`;
+    const key = getTaskGroupKey(task);
     if (!groups.has(key)) {
       groups.set(key, {
+        key,
         est: task.est,
         building: task.building,
         owners: new Set(),
@@ -616,6 +673,22 @@ function buildTaskGroups(tasksToRender) {
   });
 
   return Array.from(groups.values()).sort((left, right) => left.building.localeCompare(right.building));
+}
+
+function groupIsComplete(group) {
+  return group.items.length > 0 && group.totals.done === group.items.length;
+}
+
+function groupIsReviewed(group) {
+  return groupIsComplete(group) && Boolean(state.groupReviewByKey[group.key]);
+}
+
+function canPersistGroupReview() {
+  return state.backend === BACKEND_SUPABASE;
+}
+
+function canToggleGroupReview(group) {
+  return state.loaded && canPersistGroupReview() && (isAdmin() || isLead()) && groupIsComplete(group);
 }
 
 function renderMemberBadge(slug) {
@@ -645,6 +718,20 @@ function getGroupStateChipsHtml(group) {
     .join("");
 }
 
+function getGroupReviewLabel(group) {
+  return groupIsReviewed(group) ? "Reviewed & submitted" : "Ready for review";
+}
+
+function getGroupReviewTooltip(group) {
+  if (!canPersistGroupReview()) {
+    return "Shared review status is available only when the live Supabase backend is connected.";
+  }
+
+  return groupIsReviewed(group)
+    ? "This building was reviewed and marked as submitted for the whole team."
+    : "Mark this building as reviewed and submitted after you finish checking all done items.";
+}
+
 function getGroupHighlightsHtml(group) {
   const itemLabel = `${group.items.length} ${group.items.length === 1 ? "Item" : "Items"}`;
   const noteLabel = group.noteCount === 1 ? "1 Note" : `${group.noteCount} Notes`;
@@ -670,11 +757,62 @@ function getGroupMetaHtml(group) {
 
   return `
     <div class="building-meta">
+      ${groupIsComplete(group) ? `
+        <button
+          type="button"
+          class="group-review-toggle${groupIsReviewed(group) ? " is-reviewed" : ""}"
+          onclick="toggleGroupReview('${encodeURIComponent(group.key)}')"
+          ${canToggleGroupReview(group) ? "" : "disabled"}
+          aria-pressed="${groupIsReviewed(group) ? "true" : "false"}"
+          title="${escapeHtml(getGroupReviewTooltip(group))}"
+        >${escapeHtml(getGroupReviewLabel(group))}</button>
+      ` : ""}
       <div class="owner-stack">
         ${orderedOwners.map((slug) => renderMemberBadge(slug)).join("")}
       </div>
     </div>
   `;
+}
+
+async function saveGroupReviewState(groupReviewByKey) {
+  if (!canPersistGroupReview()) {
+    throw new Error("Shared review status needs the live Supabase backend.");
+  }
+
+  const payload = buildGroupReviewSystemTaskPayload(groupReviewByKey);
+  const { error } = await sb.from("task_statuses").upsert(payload, { onConflict: "id" });
+  if (error) {
+    throw error;
+  }
+
+  state.groupReviewRecordId = payload.id;
+}
+
+async function persistGroupReviewToggle(groupKey) {
+  const nextGroupReviewByKey = { ...state.groupReviewByKey };
+
+  if (nextGroupReviewByKey[groupKey]) {
+    delete nextGroupReviewByKey[groupKey];
+  } else {
+    nextGroupReviewByKey[groupKey] = true;
+  }
+
+  try {
+    clearTransientWarning();
+    setDot("saving");
+    await saveGroupReviewState(nextGroupReviewByKey);
+    state.groupReviewByKey = nextGroupReviewByKey;
+    render();
+    setDot("ok");
+  } catch (error) {
+    setWarning(`Could not save review status: ${error.message}`);
+    setDot("red");
+  }
+}
+
+function toggleGroupReview(encodedGroupKey) {
+  const groupKey = decodeURIComponent(encodedGroupKey);
+  void persistGroupReviewToggle(groupKey);
 }
 
 function getTaskById(taskId) {
@@ -1004,9 +1142,15 @@ function renderBoard() {
     .map((est) => {
       const cards = estGroups.get(est).map((group) => {
         const accent = getGroupAccent(group);
+        const cardClasses = [
+          "card",
+          "building-card",
+          groupIsComplete(group) ? "is-complete" : "",
+          groupIsReviewed(group) ? "is-reviewed" : ""
+        ].filter(Boolean).join(" ");
 
         return `
-          <article class="card building-card" style="--card-accent:${accent.solid}; --card-accent-soft:${accent.soft}; --card-accent-strong:${accent.strong}">
+          <article class="${cardClasses}" style="--card-accent:${accent.solid}; --card-accent-soft:${accent.soft}; --card-accent-strong:${accent.strong}">
             <div class="building-card-head">
               <div class="building-card-copy">
                 <span class="est-tag">EST ${group.est}</span>
@@ -1399,25 +1543,28 @@ function render() {
 }
 
 function buildPreviewMessage() {
-  return "Preview mode is active. Changes are stored in this browser only until you run the latest supabase_setup.sql. March 2026 hierarchy and assignments are seeded locally so everyone can review the latest distribution.";
+  return "Local preview mode is active on this device. Changes are stored in this browser only until you run the latest supabase_setup.sql. Shared review submission is disabled until the live Supabase backend is available.";
 }
 
 async function detectBackend() {
   try {
     const { error } = await sb.from("team_members").select("slug").limit(1);
-    return error ? BACKEND_PREVIEW : BACKEND_SUPABASE;
+    return error && ALLOW_PREVIEW_FALLBACK ? BACKEND_PREVIEW : BACKEND_SUPABASE;
   } catch {
-    return BACKEND_PREVIEW;
+    return ALLOW_PREVIEW_FALLBACK ? BACKEND_PREVIEW : BACKEND_SUPABASE;
   }
 }
 
 async function loadPreviewData() {
   ensurePreviewSeed();
   state.missingSupported = true;
+  const tasks = sortTasks(readLocalJson(TASK_STORAGE_KEY, getSeedTasks()).map((task) => cloneTask(task)));
 
   return {
     members: sortMembers(readLocalJson(MEMBER_STORAGE_KEY, getSeedMembers()).map((member) => cloneMember(member))),
-    tasks: sortTasks(readLocalJson(TASK_STORAGE_KEY, getSeedTasks()).map((task) => cloneTask(task)))
+    tasks,
+    groupReviewByKey: {},
+    groupReviewRecordId: null
   };
 }
 
@@ -1453,9 +1600,16 @@ async function loadRemoteData() {
     throw tasksResponse.error;
   }
 
+  const allTasks = (tasksResponse.data || []).map((task) => cloneTask(task));
+  const groupReviewRecord = allTasks.find((task) => isGroupReviewSystemTask(task)) || null;
+  const visibleTasks = sortTasks(allTasks.filter((task) => !isGroupReviewSystemTask(task)));
+  const groupReviewByKey = pruneGroupReviewMap(parseGroupReviewMap(groupReviewRecord?.note), visibleTasks);
+
   return {
     members: sortMembers((membersResponse.data || []).map((member) => cloneMember(member))),
-    tasks: sortTasks((tasksResponse.data || []).map((task) => cloneTask(task)))
+    tasks: visibleTasks,
+    groupReviewByKey,
+    groupReviewRecordId: groupReviewRecord?.id || null
   };
 }
 
@@ -1484,6 +1638,8 @@ function pruneEphemeralTaskState() {
 function applyLoadedPayload(payload) {
   state.members = payload.members;
   state.tasks = payload.tasks;
+  state.groupReviewByKey = payload.groupReviewByKey || {};
+  state.groupReviewRecordId = payload.groupReviewRecordId || null;
   state.currentUser = resolveCurrentUser();
   state.loaded = true;
 
@@ -1510,7 +1666,7 @@ async function loadAllData() {
     applyLoadedPayload(payload);
     setDot("ok");
   } catch (error) {
-    if (state.backend === BACKEND_SUPABASE) {
+    if (state.backend === BACKEND_SUPABASE && ALLOW_PREVIEW_FALLBACK) {
       state.backend = BACKEND_PREVIEW;
       setWarning(`Could not load the live hierarchy from Supabase: ${error.message}. Falling back to local preview data.`);
 
@@ -1524,6 +1680,12 @@ async function loadAllData() {
         setDot("red");
         return;
       }
+    }
+
+    if (state.backend === BACKEND_SUPABASE) {
+      setWarning(`Could not load the live hierarchy from Supabase: ${error.message}`);
+      setDot("red");
+      return;
     }
 
     setWarning(`Could not load preview data: ${error.message}`);
@@ -2162,5 +2324,6 @@ window.toggleNoteEditor = toggleNoteEditor;
 window.saveNote = saveNote;
 window.cycleStatus = cycleStatus;
 window.toggleMissing = toggleMissing;
+window.toggleGroupReview = toggleGroupReview;
 
 void init();

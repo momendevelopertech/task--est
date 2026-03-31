@@ -290,6 +290,30 @@ set
   floor_name = excluded.floor_name,
   owner = excluded.owner;
 
+insert into public.task_statuses (
+  id,
+  task_key,
+  est,
+  building,
+  floor_name,
+  owner,
+  status,
+  note,
+  missing
+)
+values (
+  -1,
+  '__system__group-review-v1',
+  0,
+  '__system__',
+  'group-review-state',
+  'admin',
+  'done',
+  '{}',
+  false
+)
+on conflict (id) do nothing;
+
 create unique index if not exists task_statuses_task_key_idx
 on public.task_statuses (task_key)
 where task_key is not null;
